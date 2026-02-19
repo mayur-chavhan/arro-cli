@@ -24,6 +24,8 @@ services:
     image: traefik:v3.3
     security_opt:
       - no-new-privileges:true
+    environment:
+      DOCKER_API_VERSION: "1.44"
     command:
       - --api.dashboard=true
       - --api.insecure=true
@@ -78,7 +80,6 @@ services:
     container_name: dockhand
     environment:
       <<: *commonenv
-      DOCKER_HOST: tcp://docker-socket-proxy:2375
     volumes:
       - dockhand_data:/app/data
     labels:
@@ -284,7 +285,6 @@ services:
     image: fmartinou/whats-up-docker:latest
     environment:
       <<: *commonenv
-      DOCKER_HOST: tcp://docker-socket-proxy:2375
       WUD_WATCHER_LOCAL_CRON: "0 0 4 * * *"
       WUD_TRIGGER_MOCK_EXAMPLE_MOCK: "true"
     volumes:
