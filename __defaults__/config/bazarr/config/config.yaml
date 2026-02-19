@@ -19,7 +19,7 @@ anticaptcha:
 assrt:
   token: ''
 auth:
-  apikey: 6728f878e5c09fc41f9824030e1a3c24
+  apikey: ''
   password: ''
   type: null
   username: ''
@@ -186,8 +186,8 @@ proxy:
   url: ''
   username: ''
 radarr:
-  apikey: 4f21dd73fef64eb6576a69aa4996c545fb343b1af77988e92886f824dbd0257c
-  base_url: /radarr
+  apikey: ''
+  base_url: ''
   defer_search_signalr: false
   excluded_tags: []
   full_update: Daily
@@ -215,8 +215,8 @@ series_scores:
   video_codec: 2
   year: 90
 sonarr:
-  apikey: 56009e9dba5de026fe944efef084e0b4f929aedf22c6c4d660fb74e9f2e4b13f
-  base_url: /sonarr
+  apikey: ''
+  base_url: ''
   defer_search_signalr: false
   exclude_season_zero: false
   excluded_series_types: []
