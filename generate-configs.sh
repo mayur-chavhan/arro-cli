@@ -797,6 +797,220 @@ generate_service_dirs() {
     create_dir "$CONFIG_ROOT/wud"
     create_dir "$CONFIG_ROOT/bazarr"
     create_dir "$CONFIG_ROOT/seerr"
+    create_dir "$CONFIG_ROOT/homepage"
+}
+
+generate_homepage_config() {
+    create_dir "$CONFIG_ROOT/homepage"
+
+    create_file "$CONFIG_ROOT/homepage/docker.yaml" "$(cat << EOF
+my-docker:
+  socket: /var/run/docker.sock
+EOF
+)"
+
+    create_file "$CONFIG_ROOT/homepage/settings.yaml" "$(cat << EOF
+title: ArrGo Dashboard
+favicon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/jellyfin.png
+
+background: https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=80
+
+theme: dark
+color: slate
+
+headerStyle: boxed
+
+layout:
+  Media:
+    style: row
+    columns: 1
+  Requests:
+    style: row
+    columns: 1
+  Movies & TV:
+    style: row
+    columns: 3
+  Indexers:
+    style: row
+    columns: 2
+  Downloads:
+    style: row
+    columns: 1
+  Monitoring:
+    style: row
+    columns: 2
+  Infrastructure:
+    style: row
+    columns: 2
+  Dashboards:
+    style: row
+    columns: 1
+  Tools:
+    style: row
+    columns: 4
+
+quicklaunch:
+  searchDescriptions: true
+  hideInternetSearch: false
+  hideVisitURL: false
+
+showStats: true
+
+statusStyle: dot
+EOF
+)"
+
+    create_file "$CONFIG_ROOT/homepage/bookmarks.yaml" "$(cat << EOF
+- Media Links:
+    - TMDB:
+        href: https://www.themoviedb.org/
+        icon: tmdb.png
+
+    - Trakt:
+        href: https://trakt.tv/
+        icon: trakt.png
+EOF
+)"
+
+    create_file "$CONFIG_ROOT/homepage/services.yaml" "$(cat << EOF
+- Media:
+    - Jellyfin:
+        icon: jellyfin.png
+        href: http://jellyfin.\${DOMAIN:-localhost}
+        description: Media Server
+        widget:
+          type: jellyfin
+          url: http://jellyfin:8096
+          key: \${HOMEPAGE_VAR_JELLYFIN_API_KEY}
+
+- Requests:
+    - Seerr:
+        icon: overseerr.png
+        href: http://seerr.\${DOMAIN:-localhost}
+        description: Media Requests
+        widget:
+          type: overseerr
+          url: http://seerr:5055
+          key: \${HOMEPAGE_VAR_SEERR_API_KEY}
+
+- Movies & TV:
+    - Radarr:
+        icon: radarr.png
+        href: http://radarr.\${DOMAIN:-localhost}
+        description: Movie Management
+        widget:
+          type: radarr
+          url: http://radarr:7878
+          key: \${HOMEPAGE_VAR_RADARR_API_KEY}
+
+    - Sonarr:
+        icon: sonarr.png
+        href: http://sonarr.\${DOMAIN:-localhost}
+        description: TV Series Management
+        widget:
+          type: sonarr
+          url: http://sonarr:8989
+          key: \${HOMEPAGE_VAR_SONARR_API_KEY}
+
+    - Bazarr:
+        icon: bazarr.png
+        href: http://bazarr.\${DOMAIN:-localhost}
+        description: Subtitles Management
+        widget:
+          type: bazarr
+          url: http://bazarr:6767
+          key: \${HOMEPAGE_VAR_BAZARR_API_KEY}
+
+- Indexers:
+    - Prowlarr:
+        icon: prowlarr.png
+        href: http://prowlarr.\${DOMAIN:-localhost}
+        description: Indexer Manager
+        widget:
+          type: prowlarr
+          url: http://prowlarr:9696
+          key: \${HOMEPAGE_VAR_PROWLARR_API_KEY}
+
+    - Jackett:
+        icon: jackett.png
+        href: http://jackett.\${DOMAIN:-localhost}
+        description: Indexer Proxy
+        widget:
+          type: jackett
+          url: http://jackett:9117
+          key: \${HOMEPAGE_VAR_JACKETT_API_KEY}
+
+- Downloads:
+    - qBittorrent:
+        icon: qbittorrent.png
+        href: http://qbittorrent.\${DOMAIN:-localhost}
+        description: Torrent Client
+        widget:
+          type: qbittorrent
+          url: http://qbittorrent:8080
+          username: admin
+          password: adminadmin
+
+- Monitoring:
+    - Jellystat:
+        icon: jellystat.png
+        href: http://jellystat.\${DOMAIN:-localhost}
+        description: Jellyfin Statistics
+        widget:
+          type: jellystat
+          url: http://jellystat:3000
+          key: \${HOMEPAGE_VAR_JELLYSTAT_API_KEY}
+
+    - What's Up Docker:
+        icon: whatsupdocker.png
+        href: http://wud.\${DOMAIN:-localhost}
+        description: Container Updates
+        widget:
+          type: whatsupdocker
+          url: http://wud:3000
+
+- Infrastructure:
+    - Traefik:
+        icon: traefik.png
+        href: http://traefik.\${DOMAIN:-localhost}
+        description: Reverse Proxy
+        widget:
+          type: traefik
+          url: http://traefik:8080
+
+    - Dockhand:
+        icon: dockhand.png
+        href: http://dockhand.\${DOMAIN:-localhost}
+        description: Container Management
+
+- Dashboards:
+    - Homarr:
+        icon: homarr.png
+        href: http://homarr.\${DOMAIN:-localhost}
+        description: Alternative Dashboard
+
+- Tools:
+    - Flaresolverr:
+        icon: flaresolverr.png
+        href: http://flaresolverr.\${DOMAIN:-localhost}
+        description: Cloudflare Solver
+
+    - Huntarr:
+        icon: huntarr.png
+        href: http://huntarr.\${DOMAIN:-localhost}
+        description: Media Hunting
+
+    - Recommendarr:
+        icon: recommendarr.png
+        href: http://recommendarr.\${DOMAIN:-localhost}
+        description: Media Recommendations
+
+    - Deleterr:
+        icon: deleterr.png
+        href: http://deleterr.\${DOMAIN:-localhost}
+        description: Media Cleanup
+EOF
+)"
 }
 
 generate_seerr_config() {
@@ -960,6 +1174,18 @@ generate_seerr_config "$RADARR_API_KEY" "$SONARR_API_KEY"
 log "BLUE" "Generating Bazarr configuration..."
 BAZARR_API_KEY=$(generate_bazarr_config "$SONARR_API_KEY" "$RADARR_API_KEY")
 update_env_var "BAZARR_API_KEY" "$BAZARR_API_KEY"
+
+log "BLUE" "Generating Homepage configuration..."
+generate_homepage_config
+
+update_env_var "HOMEPAGE_VAR_JELLYFIN_API_KEY" "${JELLYFIN_API_KEY:-}"
+update_env_var "HOMEPAGE_VAR_SEERR_API_KEY" "${SEERR_API_KEY:-}"
+update_env_var "HOMEPAGE_VAR_RADARR_API_KEY" "$RADARR_API_KEY"
+update_env_var "HOMEPAGE_VAR_SONARR_API_KEY" "$SONARR_API_KEY"
+update_env_var "HOMEPAGE_VAR_BAZARR_API_KEY" "$BAZARR_API_KEY"
+update_env_var "HOMEPAGE_VAR_PROWLARR_API_KEY" "$PROWLARR_API_KEY"
+update_env_var "HOMEPAGE_VAR_JACKETT_API_KEY" "$JACKETT_API_KEY"
+update_env_var "HOMEPAGE_VAR_JELLYSTAT_API_KEY" "${JELLYSTAT_JWT_SECRET:-}"
 
 generate_service_dirs
 

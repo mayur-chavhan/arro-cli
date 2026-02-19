@@ -19,6 +19,7 @@ volumes:
   dockhand_data:
   jellystat_db:
   jellystat_data:
+  homepage_data:
 
 services:
   traefik:
@@ -283,6 +284,30 @@ services:
       - traefik.http.services.homarr.loadbalancer.server.port=7575
       - wud.enabled=true
       - wud.tag.display.name=homarr
+
+  homepage:
+    <<: *common
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    environment:
+      <<: *commonenv
+      HOMEPAGE_ALLOWED_HOSTS: ${DOMAIN:-localhost}
+    ports:
+      - "3004:3000"
+    volumes:
+      - ${CONFIG_ROOT}/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.homepage.rule=Host(`homepage.${DOMAIN:-localhost}`)
+      - traefik.http.services.homepage.loadbalancer.server.port=3000
+      - wud.enabled=true
+      - wud.tag.display.name=homepage
+      - homepage.group=Infrastructure
+      - homepage.name=Homepage
+      - homepage.icon=homepage.png
+      - homepage.href=http://homepage.${DOMAIN:-localhost}
+      - homepage.description=Dashboard
 
   deleterr:
     <<: *common
