@@ -82,10 +82,11 @@ services:
       <<: *commonenv
     volumes:
       - dockhand_data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
       - traefik.enable=true
       - traefik.http.routers.dockhand.rule=Host(`dockhand.${DOMAIN:-localhost}`)
-      - traefik.http.services.dockhand.loadbalancer.server.port=8000
+      - traefik.http.services.dockhand.loadbalancer.server.port=3000
       - wud.enabled=true
       - wud.tag.display.name=dockhand
 

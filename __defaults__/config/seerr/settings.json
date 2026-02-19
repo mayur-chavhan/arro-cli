@@ -4,7 +4,7 @@
  "vapidPublic": "BOod6DkR4qkSmi3VbW0nbwpHOrdsVjQPMmT3YfIaCX4T83y1PnJ7I-SPGlbTml_I7vsk7VepQakkudWxIKRKF-g",
  "main": {
   "apiKey": "MTczMDYzNDAxNjg2NzY3ZTI3YzU2LWM3ODMtNDg4Ni1iMGMyLTc1ODZlODY4OGJkOQ==",
-  "applicationTitle": "Overseerr",
+   "applicationTitle": "ArrGo",
   "applicationUrl": "",
   "csrfProtection": false,
   "cacheImages": false,
@@ -15,36 +15,14 @@
   },
   "hideAvailable": false,
   "localLogin": true,
-  "newPlexLogin": true,
+   "newPlexLogin": false,
   "region": "",
   "originalLanguage": "",
   "trustProxy": false,
   "partialRequestsEnabled": true,
   "locale": "en"
  },
- "plex": {
-  "name": "app",
-  "ip": "172-18-0-6.54bb5c1428084b0ab3fca20bb78689b4.plex.direct",
-  "port": 32400,
-  "useSsl": false,
-  "libraries": [
-   {
-    "id": "1",
-    "name": "Movies",
-    "enabled": true,
-    "type": "movie",
-    "lastScan": 1730636704082
-   },
-   {
-    "id": "2",
-    "name": "TV Shows",
-    "enabled": true,
-    "type": "show",
-    "lastScan": 1730636704092
-   }
-  ],
-  "machineId": "7eddf88e82e335a5d699f4d05742f9d9b9aaf4ba"
- },
+  "plex": {},
  "tautulli": {},
  "radarr": [
   {
@@ -104,7 +82,7 @@
      "ignoreTls": false,
      "requireTls": false,
      "allowSelfSigned": false,
-     "senderName": "Overseerr"
+      "senderName": "ArrGo"
     }
    },
    "discord": {
