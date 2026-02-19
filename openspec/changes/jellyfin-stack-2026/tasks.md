@@ -113,7 +113,7 @@
 - [ ] 9.6 Verify all new services start correctly
 - [ ] 9.7 Verify Traefik routes all services
 - [ ] 9.8 Verify WUD detects all services
-- [ ] 9.9 Run `openspec validate jellyfin-stack-2026 --strict --no-interactive`
+- [x] 9.9 Run `openspec validate jellyfin-stack-2026 --strict --no-interactive`
 
 ## Dependencies
 
