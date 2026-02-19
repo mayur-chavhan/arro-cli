@@ -6,6 +6,9 @@ x-common: &common
     UMASK: "022"
     PUID: ${PUID:-1000}
     PGID: ${PGID:-1000}
+    # NOTE: PUID/PGID/UMASK are only honored by linuxserver.io images (lscr.io/linuxserver/*).
+    # Non-linuxserver images (homarr, seerr, flaresolverr, wud, dockhand, etc.) ignore these vars.
+    # Those services run as their own internal user and cannot be overridden via environment.
   restart: unless-stopped
   networks:
     - media_network
@@ -22,8 +25,7 @@ services:
     <<: *common
     container_name: traefik
     image: traefik:v3.6
-    security_opt:
-      - no-new-privileges:true
+    # security_opt inherited from *common (no-new-privileges:true)
     environment:
       DOCKER_API_VERSION: "1.44"
     command:
@@ -33,7 +35,7 @@ services:
       - --providers.docker.endpoint=unix:///var/run/docker.sock
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
-      - --log.level=DEBUG
+      - --log.level=INFO
       - --providers.docker.network=media_network
       - --serversTransport.insecureSkipVerify=true
       - --core.defaultRuleSyntax=v2
@@ -237,8 +239,8 @@ services:
     container_name: flaresolverr
     image: ghcr.io/flaresolverr/flaresolverr:latest
     environment:
+      <<: *commonenv
       LOG_LEVEL: info
-      TZ: ${TZ:-UTC}
     labels:
       - traefik.enable=true
       - traefik.http.routers.flaresolverr.rule=Host(`flaresolverr.${DOMAIN:-localhost}`)
@@ -290,6 +292,7 @@ services:
       WUD_TRIGGER_MOCK_EXAMPLE_MOCK: "true"
     volumes:
       - wud_data:/store
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
       - traefik.enable=true
       - traefik.http.routers.wud.rule=Host(`wud.${DOMAIN:-localhost}`)
@@ -309,18 +312,27 @@ services:
     networks:
       - media_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jellystat -d jellystat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   jellystat:
     <<: *common
     image: cyfershepard/jellystat:latest
     container_name: jellystat
+    depends_on:
+      jellystat-db:
+        condition: service_healthy
     environment:
       <<: *commonenv
       POSTGRES_USER: jellystat
       POSTGRES_PASSWORD: ${JELLYSTAT_DB_PASSWORD:-jellystat}
       POSTGRES_IP: jellystat-db
       POSTGRES_PORT: 5432
-      JWT_SECRET: ${JELLYSTAT_JWT_SECRET:-change-me-in-production}
+      JWT_SECRET: ${JELLYSTAT_JWT_SECRET:?JELLYSTAT_JWT_SECRET must be set in .env - do not use the default}
     volumes:
       - jellystat_data:/app/backend/backup-data
     labels:
