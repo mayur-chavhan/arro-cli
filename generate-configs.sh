@@ -2,6 +2,13 @@
 
 set -e
 
+FORCE=false
+for arg in "$@"; do
+    case $arg in
+        --force|-f) FORCE=true ;;
+    esac
+done
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -30,8 +37,31 @@ create_file() {
     local file="$1"
     local content="$2"
     create_dir "$(dirname "$file")" >&2
+    if [ -f "$file" ] && [ "$FORCE" != "true" ]; then
+        log "YELLOW" "Skipping existing file (use --force to overwrite): $file" >&2
+        return 0
+    fi
     echo "$content" > "$file"
     log "BLUE" "Created file: $file" >&2
+}
+
+# Read existing API key from a config file to avoid regenerating on re-runs.
+# For XML config.xml: extracts <ApiKey>...</ApiKey>
+# For JSON ServerConfig.json: extracts "APIKey": "..."
+# Returns empty string if file doesn't exist or key not found.
+read_existing_xml_key() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        grep -oP '(?<=<ApiKey>)[^<]+' "$file" 2>/dev/null || true
+    fi
+}
+
+read_existing_json_key() {
+    local file="$1"
+    local field="$2"
+    if [ -f "$file" ]; then
+        grep -oP "(?<=\"${field}\": \")[^\"]+" "$file" 2>/dev/null || true
+    fi
 }
 
 update_env_var() {
@@ -136,7 +166,10 @@ EOF
 }
 
 generate_prowlarr_config() {
-    local api_key=$(openssl rand -hex 32)
+    local config_file="$CONFIG_ROOT/prowlarr/config.xml"
+    local existing_key
+    existing_key=$(read_existing_xml_key "$config_file")
+    local api_key="${existing_key:-$(openssl rand -hex 32)}"
     
     create_dir "$CONFIG_ROOT/prowlarr"
     create_file "$CONFIG_ROOT/prowlarr/config.xml" "$(cat << EOF
@@ -162,7 +195,10 @@ EOF
 }
 
 generate_jackett_config() {
-    local api_key=$(openssl rand -hex 32)
+    local config_file="$CONFIG_ROOT/jackett/Jackett/ServerConfig.json"
+    local existing_key
+    existing_key=$(read_existing_json_key "$config_file" "APIKey")
+    local api_key="${existing_key:-$(openssl rand -hex 32)}"
     
     create_dir "$CONFIG_ROOT/jackett"
     create_file "$CONFIG_ROOT/jackett/Jackett/ServerConfig.json" "$(cat << EOF
@@ -185,7 +221,10 @@ EOF
 }
 
 generate_sonarr_config() {
-    local api_key=$(openssl rand -hex 32)
+    local config_file="$CONFIG_ROOT/sonarr/config.xml"
+    local existing_key
+    existing_key=$(read_existing_xml_key "$config_file")
+    local api_key="${existing_key:-$(openssl rand -hex 32)}"
     
     create_dir "$CONFIG_ROOT/sonarr"
     create_file "$CONFIG_ROOT/sonarr/config.xml" "$(cat << EOF
@@ -304,7 +343,10 @@ EOF
 }
 
 generate_radarr_config() {
-    local api_key=$(openssl rand -hex 32)
+    local config_file="$CONFIG_ROOT/radarr/config.xml"
+    local existing_key
+    existing_key=$(read_existing_xml_key "$config_file")
+    local api_key="${existing_key:-$(openssl rand -hex 32)}"
     
     create_dir "$CONFIG_ROOT/radarr"
     create_file "$CONFIG_ROOT/radarr/config.xml" "$(cat << EOF
@@ -601,6 +643,84 @@ generate_service_dirs() {
     create_dir "$CONFIG_ROOT/seerr"
 }
 
+generate_seerr_config() {
+    local radarr_api_key="$1"
+    local sonarr_api_key="$2"
+
+    create_file "$CONFIG_ROOT/seerr/settings.json" "$(cat << EOF
+{
+ "main": {
+  "applicationTitle": "ArrGo",
+  "applicationUrl": "",
+  "csrfProtection": false,
+  "cacheImages": false,
+  "defaultPermissions": 32,
+  "defaultQuotas": {
+   "movie": {},
+   "tv": {}
+  },
+  "hideAvailable": false,
+  "localLogin": true,
+  "newPlexLogin": false,
+  "region": "",
+  "originalLanguage": "",
+  "trustProxy": false,
+  "partialRequestsEnabled": true,
+  "locale": "en"
+ },
+ "plex": {},
+ "tautulli": {},
+ "radarr": [
+  {
+   "name": "Radarr",
+   "hostname": "radarr",
+   "port": 7878,
+   "apiKey": "${radarr_api_key}",
+   "useSsl": false,
+   "activeProfileId": 3,
+   "activeProfileName": "HD-720p",
+   "activeDirectory": "/movies",
+   "is4k": false,
+   "minimumAvailability": "released",
+   "tags": [],
+   "isDefault": true,
+   "syncEnabled": false,
+   "preventSearch": false,
+   "tagRequests": false,
+   "id": 0
+  }
+ ],
+ "sonarr": [
+  {
+   "name": "Sonarr",
+   "hostname": "sonarr",
+   "port": 8989,
+   "apiKey": "${sonarr_api_key}",
+   "useSsl": false,
+   "baseUrl": "/sonarr",
+   "activeProfileId": 3,
+   "activeLanguageProfileId": 1,
+   "activeProfileName": "HD-720p",
+   "activeDirectory": "/tv",
+   "tags": [],
+   "animeTags": [],
+   "is4k": false,
+   "isDefault": true,
+   "enableSeasonFolders": false,
+   "syncEnabled": false,
+   "preventSearch": false,
+   "tagRequests": false,
+   "id": 0
+  }
+ ],
+ "public": {
+  "initialized": true
+ }
+}
+EOF
+)"
+}
+
 if [ ! -f .env ]; then
     log "RED" "Environment file .env not found!"
     exit 1
@@ -634,16 +754,19 @@ generate_qbittorrent_config "$PROWLARR_API_KEY" "$JACKETT_API_KEY"
 log "BLUE" "Generating Traefik configuration..."
 generate_traefik_config
 
-log "BLUE" "Generating other configurations..."
-generate_deleterr_config
-generate_recyclarr_config
-generate_service_dirs
-
 log "BLUE" "Updating API keys in .env file..."
 update_env_var "SONARR_API_KEY" "$SONARR_API_KEY"
 update_env_var "RADARR_API_KEY" "$RADARR_API_KEY"
 update_env_var "PROWLARR_API_KEY" "$PROWLARR_API_KEY"
 update_env_var "JACKETT_API_KEY" "$JACKETT_API_KEY"
+
+source .env
+
+log "BLUE" "Generating other configurations..."
+generate_deleterr_config
+generate_recyclarr_config
+generate_seerr_config "$RADARR_API_KEY" "$SONARR_API_KEY"
+generate_service_dirs
 
 log "GREEN" "Configuration generation complete!"
 log "BLUE" "Prowlarr API Key: $PROWLARR_API_KEY"
