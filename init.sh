@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Create logs directory before anything else so the error trap can write to it
+mkdir -p logs
+
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -26,9 +29,6 @@ handle_error() {
     log "ERROR" "Error on line $line_number: Command failed with exit code $exit_code"
     exit $exit_code
 }
-
-# Create logs directory if it doesn't exist
-mkdir -p logs
 
 # Logging function
 log() {
@@ -165,7 +165,7 @@ check_docker_installation() {
         log "WARNING" "Docker version is older than recommended. Please consider upgrading."
     fi
 
-    if ! command -v docker-compose &> /dev/null; then
+    if ! docker compose version &> /dev/null; then
         log "ERROR" "Docker Compose is not installed. Please install Docker Compose first."
         if [ "$MACHINE" = "Mac" ]; then
             log "INFO" "Docker Compose comes with Docker Desktop for Mac"

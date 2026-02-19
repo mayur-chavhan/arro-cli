@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# Create logs directory before anything else so the error trap can write to it
+mkdir -p logs
+
+# Color definitions
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
 # First, handle command line arguments
 USE_DEFAULTS=false
 for arg in "$@"; do
@@ -14,13 +24,6 @@ for arg in "$@"; do
             ;;
     esac
 done
-
-# Color definitions
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
 
 # Function to check if running in Docker container
 in_container() {
@@ -61,9 +64,6 @@ print_login_info() {
 set -euo pipefail
 trap 'log "RED" "Error on line $LINENO: Command failed with exit code $?"' ERR
 
-# Create logs directory
-mkdir -p logs
-
 # Check for root
 if [ "$EUID" -eq 0 ]; then
     log "RED" "Please do not run as root"
@@ -94,14 +94,14 @@ DOCKER_VERSION=$(docker --version | cut -d ' ' -f3 | cut -d ',' -f1)
 log "BLUE" "Docker version: $DOCKER_VERSION"
 
 # Check Docker Compose
-if ! command -v docker-compose &> /dev/null; then
-    log "YELLOW" "Docker Compose not found. Installing..."
+if ! docker compose version &> /dev/null; then
+    log "YELLOW" "Docker Compose plugin not found. Installing..."
     sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     sudo chmod +x /usr/local/bin/docker-compose
 fi
 
 # Check Docker Compose version
-COMPOSE_VERSION=$(docker-compose --version | cut -d ' ' -f3 | cut -d ',' -f1)
+COMPOSE_VERSION=$(docker compose version --short 2>/dev/null || echo "unknown")
 log "BLUE" "Docker Compose version: $COMPOSE_VERSION"
 
 # Make scripts executable
@@ -200,7 +200,7 @@ else
 
     # Check if services are running
     sleep 5
-    if ! docker-compose ps | grep -q "Up"; then
+    if ! docker compose ps | grep -q "Up"; then
         log "RED" "Warning: Some services failed to start. Check the logs for more information."
         exit 1
     fi
