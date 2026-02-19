@@ -51,6 +51,7 @@ services:
       - --api.dashboard=true
       - --api.insecure=true
       - --providers.docker=true
+      - --providers.docker.endpoint=tcp://docker-socket-proxy:2375
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --log.level=DEBUG
