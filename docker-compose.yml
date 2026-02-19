@@ -206,7 +206,7 @@ services:
   seerr:
     <<: *common
     container_name: seerr
-    image: sctx/seerr:latest
+    image: seerr/seerr:latest
     environment:
       <<: *commonenv
       DOCKER_MODS: ghcr.io/themepark-dev/theme.park:overseerr
@@ -386,7 +386,7 @@ services:
 
   boxarr:
     <<: *common
-    image: iongpt/boxarr:latest
+    image: ghcr.io/iongpt/boxarr:latest
     container_name: boxarr
     environment:
       <<: *commonenv
