@@ -646,6 +646,7 @@ generate_service_dirs() {
 generate_seerr_config() {
     local radarr_api_key="$1"
     local sonarr_api_key="$2"
+    local jellyfin_api_key="${JELLYFIN_API_KEY:-}"
 
     create_file "$CONFIG_ROOT/seerr/settings.json" "$(cat << EOF
 {
@@ -660,16 +661,45 @@ generate_seerr_config() {
    "tv": {}
   },
   "hideAvailable": false,
+  "hideBlocklisted": false,
   "localLogin": true,
+  "mediaServerLogin": true,
   "newPlexLogin": false,
-  "region": "",
+  "discoverRegion": "",
+  "streamingRegion": "",
   "originalLanguage": "",
-  "trustProxy": false,
+  "blocklistedTags": "",
+  "blocklistedTagsLimit": 50,
+  "mediaServerType": 4,
   "partialRequestsEnabled": true,
-  "locale": "en"
+  "enableSpecialEpisodes": false,
+  "locale": "en",
+  "youtubeUrl": ""
  },
- "plex": {},
+ "plex": {
+  "name": "",
+  "ip": "",
+  "port": 32400,
+  "useSsl": false,
+  "libraries": []
+ },
+ "jellyfin": {
+  "name": "Jellyfin",
+  "ip": "jellyfin",
+  "port": 8096,
+  "useSsl": false,
+  "urlBase": "",
+  "externalHostname": "",
+  "jellyfinForgotPasswordUrl": "",
+  "libraries": [],
+  "serverId": "",
+  "apiKey": "${jellyfin_api_key}"
+ },
  "tautulli": {},
+ "metadataSettings": {
+  "tv": "tmdb",
+  "anime": "tmdb"
+ },
  "radarr": [
   {
    "name": "Radarr",
@@ -697,7 +727,7 @@ generate_seerr_config() {
    "port": 8989,
    "apiKey": "${sonarr_api_key}",
    "useSsl": false,
-   "baseUrl": "/sonarr",
+   "baseUrl": "",
    "activeProfileId": 3,
    "activeLanguageProfileId": 1,
    "activeProfileName": "HD-720p",
@@ -706,7 +736,7 @@ generate_seerr_config() {
    "animeTags": [],
    "is4k": false,
    "isDefault": true,
-   "enableSeasonFolders": false,
+   "enableSeasonFolders": true,
    "syncEnabled": false,
    "preventSearch": false,
    "tagRequests": false,
@@ -714,8 +744,12 @@ generate_seerr_config() {
   }
  ],
  "public": {
-  "initialized": true
- }
+  "initialized": false
+ },
+ "migrations": [
+  "0007_migrate_arr_tags",
+  "0008_migrate_blacklist_to_blocklist"
+ ]
 }
 EOF
 )"
