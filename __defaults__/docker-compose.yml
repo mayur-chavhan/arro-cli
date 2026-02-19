@@ -95,7 +95,7 @@ services:
 
   dockhand:
     <<: *common
-    image: ghcr.io/dockhand/dockhand:latest
+    image: fnsys/dockhand:latest
     container_name: dockhand
     environment:
       <<: *commonenv
