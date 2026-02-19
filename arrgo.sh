@@ -158,8 +158,8 @@ check_health() {
     check_disk_space
     
     # Check container status
-    local running_containers=$(docker-compose ps --filter "status=running" -q | wc -l)
-    local total_containers=$(docker-compose ps -q | wc -l)
+    local running_containers=$(docker compose ps --filter "status=running" -q | wc -l)
+    local total_containers=$(docker compose ps -q | wc -l)
     
     if [ "$running_containers" -eq 0 ]; then
         log "WARNING" "No containers are running"
@@ -219,18 +219,18 @@ create_backup() {
     
     # Stop services before backup
     log "INFO" "Stopping services for backup..."
-    docker-compose down
+    docker compose down
     
     if ! tar -czf "$backup_file" -C "$CONFIG_ROOT" .; then
         log "ERROR" "Backup creation failed"
         log "INFO" "Restarting services..."
-        docker-compose up -d
+        docker compose up -d
         return 1
     fi
     
     # Restart services
     log "INFO" "Restarting services..."
-    docker-compose up -d
+    docker compose up -d
     
     log "SUCCESS" "Backup created: $backup_file"
 }
@@ -258,7 +258,7 @@ restore_backup() {
     fi
 
     log "INFO" "Stopping services..."
-    docker-compose down
+    docker compose down
 
     # Create backup of current config
     local pre_restore_backup="backups/pre_restore_$(date +%Y%m%d_%H%M%S).tar.gz"
@@ -278,7 +278,7 @@ restore_backup() {
 
     log "SUCCESS" "Backup restored"
     log "INFO" "Starting services..."
-    docker-compose up -d
+    docker compose up -d
 }
 
 # Main execution
@@ -289,38 +289,38 @@ case "$1" in
     start)
         check_docker
         log "INFO" "Starting services..."
-        docker-compose up -d
+        docker compose up -d
         log "SUCCESS" "Services started"
         ./arrgo.sh status
         ;;
     stop)
         check_docker
         log "INFO" "Stopping services..."
-        docker-compose down
+        docker compose down
         log "SUCCESS" "Services stopped"
         ;;
     restart)
         check_docker
         log "INFO" "Restarting services..."
-        docker-compose restart
+        docker compose restart
         log "SUCCESS" "Services restarted"
         ./arrgo.sh status
         ;;
     status)
         check_docker
         echo "Container Status:"
-        docker-compose ps
+        docker compose ps
         ;;
     logs)
         check_docker
         if [ -z "${2:-}" ]; then
-            docker-compose logs --tail=100 -f
+            docker compose logs --tail=100 -f
         else
-            if ! docker-compose ps -q "$2" >/dev/null 2>&1; then
+            if ! docker compose ps -q "$2" >/dev/null 2>&1; then
                 log "ERROR" "Service $2 not found"
                 exit 1
             fi
-            docker-compose logs --tail=100 -f "$2"
+            docker compose logs --tail=100 -f "$2"
         fi
         ;;
     update)
@@ -329,8 +329,8 @@ case "$1" in
         create_backup
         
         log "INFO" "Updating containers..."
-        docker-compose pull
-        docker-compose up -d
+        docker compose pull
+        docker compose up -d
         
         log "INFO" "Cleaning up old images..."
         docker image prune -f
@@ -347,14 +347,14 @@ case "$1" in
         check_docker
         if [ -z "${2:-}" ]; then
             log "ERROR" "Please specify container name"
-            docker-compose ps --services
+            docker compose ps --services
             exit 1
         fi
-        if ! docker-compose ps -q "$2" >/dev/null 2>&1; then
+        if ! docker compose ps -q "$2" >/dev/null 2>&1; then
             log "ERROR" "Service $2 not found"
             exit 1
         fi
-        docker-compose exec "$2" /bin/bash || docker-compose exec "$2" /bin/sh
+        docker compose exec "$2" /bin/bash || docker compose exec "$2" /bin/sh
         ;;
     check)
         check_health
