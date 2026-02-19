@@ -64,6 +64,15 @@ read_existing_json_key() {
     fi
 }
 
+read_existing_yaml_key() {
+    local file="$1"
+    local section="$2"
+    local key="$3"
+    if [ -f "$file" ]; then
+        awk "/^${section}:/{found=1; next} found && /^  ${key}: /{val=\$2; gsub(/^'|'$/, \"\", val); print val; exit} found && /^[^ ]/{exit}" "$file" 2>/dev/null || true
+    fi
+}
+
 update_env_var() {
     local key=$1
     local value=$2
@@ -627,6 +636,153 @@ EOF
 )"
 }
 
+generate_bazarr_config() {
+    local sonarr_api_key="$1"
+    local radarr_api_key="$2"
+    local config_file="$CONFIG_ROOT/bazarr/config/config.yaml"
+
+    local existing_bazarr_key
+    existing_bazarr_key=$(read_existing_yaml_key "$config_file" "auth" "apikey")
+    local bazarr_api_key="${existing_bazarr_key:-$(openssl rand -hex 16)}"
+
+    local flask_secret
+    flask_secret=$(openssl rand -hex 16)
+
+    create_dir "$CONFIG_ROOT/bazarr/config"
+    create_file "$config_file" "$(cat << EOF
+---
+auth:
+  apikey: ${bazarr_api_key}
+  password: ''
+  type: null
+  username: ''
+analytics:
+  enabled: true
+general:
+  adaptive_searching: true
+  adaptive_searching_delay: 3w
+  adaptive_searching_delta: 1w
+  anti_captcha_provider: null
+  auto_update: true
+  base_url: ''
+  branch: master
+  chmod: '0640'
+  chmod_enabled: false
+  days_to_upgrade_subs: 7
+  debug: false
+  default_und_audio_lang: ''
+  default_und_embedded_subtitles_lang: ''
+  dont_notify_manual_actions: false
+  embedded_subs_show_desired: true
+  embedded_subtitles_parser: ffprobe
+  enabled_integrations: []
+  enabled_providers: []
+  flask_secret_key: ${flask_secret}
+  hi_extension: hi
+  ignore_ass_subs: false
+  ignore_pgs_subs: false
+  ignore_vobsub_subs: false
+  ip: '*'
+  language_equals: []
+  minimum_score: 90
+  minimum_score_movie: 70
+  movie_default_enabled: false
+  movie_default_profile: ''
+  movie_tag_enabled: false
+  multithreading: true
+  page_size: 25
+  parse_embedded_audio_track: false
+  path_mappings: []
+  path_mappings_movie: []
+  port: 6767
+  postprocessing_cmd: ''
+  postprocessing_threshold: 90
+  postprocessing_threshold_movie: 70
+  remove_profile_tags: []
+  serie_default_enabled: false
+  serie_default_profile: ''
+  serie_tag_enabled: false
+  single_language: false
+  skip_hashing: false
+  subfolder: current
+  subfolder_custom: ''
+  subzero_mods: ''
+  theme: auto
+  upgrade_frequency: 12
+  upgrade_manual: true
+  upgrade_subs: true
+  use_embedded_subs: true
+  use_postprocessing: false
+  use_postprocessing_threshold: false
+  use_postprocessing_threshold_movie: false
+  use_radarr: true
+  use_scenename: true
+  use_sonarr: true
+  utf8_encode: true
+  wanted_search_frequency: 6
+  wanted_search_frequency_movie: 6
+radarr:
+  apikey: ${radarr_api_key}
+  base_url: ''
+  defer_search_signalr: false
+  excluded_tags: []
+  full_update: Daily
+  full_update_day: 6
+  full_update_hour: 4
+  http_timeout: 60
+  ip: radarr
+  movies_sync: 60
+  only_monitored: false
+  port: 7878
+  ssl: false
+  sync_only_monitored_movies: false
+  use_ffprobe_cache: true
+sonarr:
+  apikey: ${sonarr_api_key}
+  base_url: ''
+  defer_search_signalr: false
+  exclude_season_zero: false
+  excluded_series_types: []
+  excluded_tags: []
+  full_update: Daily
+  full_update_day: 6
+  full_update_hour: 4
+  http_timeout: 60
+  ip: sonarr
+  only_monitored: false
+  port: 8989
+  series_sync: 60
+  ssl: false
+  sync_only_monitored_episodes: false
+  sync_only_monitored_series: false
+  use_ffprobe_cache: true
+backup:
+  day: 6
+  folder: /config/backup
+  frequency: Weekly
+  hour: 3
+  retention: 31
+postgresql:
+  database: ''
+  enabled: false
+  host: localhost
+  password: ''
+  port: 5432
+  username: ''
+proxy:
+  exclude:
+  - localhost
+  - 127.0.0.1
+  password: ''
+  port: ''
+  type: null
+  url: ''
+  username: ''
+EOF
+)"
+    printf "%s" "$bazarr_api_key"
+}
+
 generate_service_dirs() {
     create_dir "$CONFIG_ROOT/deleterr/logs"
     create_dir "$CONFIG_ROOT/jellyfin/transcode"
@@ -800,6 +956,11 @@ log "BLUE" "Generating other configurations..."
 generate_deleterr_config
 generate_recyclarr_config
 generate_seerr_config "$RADARR_API_KEY" "$SONARR_API_KEY"
+
+log "BLUE" "Generating Bazarr configuration..."
+BAZARR_API_KEY=$(generate_bazarr_config "$SONARR_API_KEY" "$RADARR_API_KEY")
+update_env_var "BAZARR_API_KEY" "$BAZARR_API_KEY"
+
 generate_service_dirs
 
 log "GREEN" "Configuration generation complete!"
@@ -807,3 +968,4 @@ log "BLUE" "Prowlarr API Key: $PROWLARR_API_KEY"
 log "BLUE" "Jackett API Key: $JACKETT_API_KEY"
 log "BLUE" "Sonarr API Key: $SONARR_API_KEY"
 log "BLUE" "Radarr API Key: $RADARR_API_KEY"
+log "BLUE" "Bazarr API Key: $BAZARR_API_KEY"
