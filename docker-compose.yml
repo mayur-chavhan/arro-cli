@@ -41,8 +41,7 @@ services:
       - --core.defaultRuleSyntax=v2
     ports:
       - "${TRAEFIK_PORT:-80}:80"
-      # Dashboard available at http://localhost:8080 (insecure mode, localhost only)
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8082:8080"
     volumes:
       - traefik_data:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro

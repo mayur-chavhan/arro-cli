@@ -121,10 +121,10 @@ show_logo() {
 ░██    ░██ ░██      ░██       ░██  ░███ ░██    ░██ 
 ░██    ░██ ░██      ░██        ░█████░█  ░███████  
                                                    
-                                                   by Mayur Chavhan                                                                         
 EOF
     echo "Version: $VERSION"
-    echo
+    echo "https://github.com/mayur-chavhan/arrgo-cli"
+    echo 
 }
 
 # Function to display help
