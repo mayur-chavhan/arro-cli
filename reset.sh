@@ -1,6 +1,9 @@
 #!/bin/bash
 # File: reset.sh
 
+# Create logs directory before anything else so the error trap can write to it
+mkdir -p logs
+
 # Enable error handling
 set -euo pipefail
 trap 'log "RED" "Error on line $LINENO: Command failed with exit code $?"' ERR
@@ -34,13 +37,27 @@ confirm_reset() {
     fi
 }
 
-# Create logs directory if it doesn't exist
-mkdir -p logs
+confirm_purge_volumes() {
+    log "YELLOW" "Do you also want to remove named Docker volumes (jellystat_db, jellystat_data, wud_data, etc.)?"
+    log "YELLOW" "This will permanently delete all database and persistent container data."
+    read -p "Remove named volumes? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        PURGE_VOLUMES=true
+    else
+        PURGE_VOLUMES=false
+    fi
+}
 
 confirm_reset
+confirm_purge_volumes
 
 log "BLUE" "Stopping all containers..."
-docker-compose down
+if [[ "$PURGE_VOLUMES" == "true" ]]; then
+    docker compose down --remove-orphans --volumes
+else
+    docker compose down --remove-orphans
+fi
 
 log "BLUE" "Removing docker network..."
 docker network rm media_network 2>/dev/null || true
@@ -48,7 +65,7 @@ docker network rm media_network 2>/dev/null || true
 log "BLUE" "Creating backup of current configuration..."
 backup_date=$(date +%Y%m%d_%H%M%S)
 mkdir -p backups
-tar -czf "backups/config_backup_${backup_date}.tar.gz" "$CONFIG_ROOT" 2>/dev/null || true
+tar -czf "backups/config_backup_${backup_date}.tar.gz" "$CONFIG_ROOT" .env 2>/dev/null || true
 
 log "BLUE" "Removing configuration directories..."
 rm -rf "${CONFIG_ROOT:?}"/*
