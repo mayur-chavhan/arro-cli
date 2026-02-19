@@ -1,0 +1,445 @@
+x-common: &common
+  security_opt:
+    - no-new-privileges:true
+  environment: &commonenv
+    TZ: ${TZ:-UTC}
+    UMASK: "022"
+    PUID: ${PUID:-1000}
+    PGID: ${PGID:-1000}
+  restart: unless-stopped
+  networks:
+    - media_network
+
+volumes:
+  traefik_data:
+  wud_data:
+  dockhand_data:
+  jellystat_db:
+  jellystat_data:
+
+services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: docker-socket-proxy
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - NETWORKS=1
+      - VOLUMES=1
+      - EVENTS=1
+      - POST=1
+      - PING=1
+      - INFO=1
+      - EXEC=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - media_network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  traefik:
+    <<: *common
+    container_name: traefik
+    image: traefik:v3.3
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --log.level=DEBUG
+      - --providers.docker.network=media_network
+      - --serversTransport.insecureSkipVerify=true
+      - --core.defaultRuleSyntax=v2
+    ports:
+      - "${TRAEFIK_PORT:-80}:80"
+    volumes:
+      - traefik_data:/letsencrypt
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.api.rule=Host(`${DOMAIN:-localhost}`) && (PathPrefix(`/`) || PathPrefix(`/api`))"
+      - traefik.http.routers.api.service=api@internal
+      - traefik.http.routers.api.priority=1
+      - wud.enabled=true
+      - wud.tag.display.name=traefik
+
+  jellyfin:
+    <<: *common
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    ports:
+      - 8096:8096
+    environment:
+      <<: *commonenv
+      JELLYFIN_PUBLISHED_SERVER_URL: http://jellyfin.${DOMAIN:-localhost}
+      DOCKER_MODS: ghcr.io/themepark-dev/theme.park:jellyfin
+      TP_THEME: ${TP_THEME:-nord}
+    volumes:
+      - ${CONFIG_ROOT}/jellyfin:/config
+      - ${STORAGE_ROOT}/MOVIES:${MOVIES_PATH}
+      - ${STORAGE_ROOT}/SERIES:${SERIES_PATH}
+      - ${STORAGE_ROOT}/AUDIO:${MUSIC_PATH}
+      - ${STORAGE_ROOT}/BOOKS:${BOOKS_PATH}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN:-localhost}`)
+      - traefik.http.services.jellyfin.loadbalancer.server.port=8096
+      - wud.enabled=true
+      - wud.tag.display.name=jellyfin
+
+  dockhand:
+    <<: *common
+    image: ghcr.io/dockhand/dockhand:latest
+    container_name: dockhand
+    environment:
+      <<: *commonenv
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+    volumes:
+      - dockhand_data:/app/data
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dockhand.rule=Host(`dockhand.${DOMAIN:-localhost}`)
+      - traefik.http.services.dockhand.loadbalancer.server.port=8000
+      - wud.enabled=true
+      - wud.tag.display.name=dockhand
+
+  sonarr:
+    <<: *common
+    container_name: sonarr
+    image: lscr.io/linuxserver/sonarr:latest
+    environment:
+      <<: *commonenv
+      DOCKER_MODS: ghcr.io/themepark-dev/theme.park:sonarr
+      TP_THEME: ${TP_THEME:-nord}
+    volumes:
+      - ${CONFIG_ROOT}/sonarr:/config
+      - ${STORAGE_ROOT}/SERIES:${SERIES_PATH}
+      - ${STORAGE_ROOT}/TORRENTS/COMPLETE:${DOWNLOADS_PATH}/complete:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN:-localhost}`)
+      - traefik.http.services.sonarr.loadbalancer.server.port=8989
+      - wud.enabled=true
+      - wud.tag.display.name=sonarr
+
+  radarr:
+    <<: *common
+    container_name: radarr
+    image: lscr.io/linuxserver/radarr:latest
+    environment:
+      <<: *commonenv
+      DOCKER_MODS: ghcr.io/themepark-dev/theme.park:radarr
+      TP_THEME: ${TP_THEME:-nord}
+    volumes:
+      - ${CONFIG_ROOT}/radarr:/config
+      - ${STORAGE_ROOT}/MOVIES:${MOVIES_PATH}
+      - ${STORAGE_ROOT}/TORRENTS/COMPLETE:${DOWNLOADS_PATH}/complete:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN:-localhost}`)
+      - traefik.http.services.radarr.loadbalancer.server.port=7878
+      - wud.enabled=true
+      - wud.tag.display.name=radarr
+
+  prowlarr:
+    <<: *common
+    container_name: prowlarr
+    image: lscr.io/linuxserver/prowlarr:latest
+    environment:
+      <<: *commonenv
+      DOCKER_MODS: ghcr.io/themepark-dev/theme.park:prowlarr
+      TP_THEME: ${TP_THEME:-nord}
+    volumes:
+      - ${CONFIG_ROOT}/prowlarr:/config
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN:-localhost}`)
+      - traefik.http.services.prowlarr.loadbalancer.server.port=9696
+      - wud.enabled=true
+      - wud.tag.display.name=prowlarr
+
+  jackett:
+    <<: *common
+    container_name: jackett
+    image: lscr.io/linuxserver/jackett:latest
+    environment:
+      <<: *commonenv
+      DOCKER_MODS: ghcr.io/themepark-dev/theme.park:jackett
+      TP_THEME: ${TP_THEME:-nord}
+    volumes:
+      - ${CONFIG_ROOT}/jackett:/config
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.jackett.rule=Host(`jackett.${DOMAIN:-localhost}`)
+      - traefik.http.services.jackett.loadbalancer.server.port=9117
+      - wud.enabled=true
+      - wud.tag.display.name=jackett
+
+  qbittorrent:
+    <<: *common
+    container_name: qbittorrent
+    image: lscr.io/linuxserver/qbittorrent:latest
+    environment:
+      <<: *commonenv
+      WEBUI_PORT: 8080
+      DOCKER_MODS: ghcr.io/themepark-dev/theme.park:qbittorrent
+      TP_THEME: ${TP_THEME:-nord}
+    volumes:
+      - ${CONFIG_ROOT}/qbittorrent:/config
+      - ${STORAGE_ROOT}/TORRENTS:${DOWNLOADS_PATH}
+    ports:
+      - 6881:6881
+      - 6881:6881/udp
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.${DOMAIN:-localhost}`)
+      - traefik.http.services.qbittorrent.loadbalancer.server.port=8080
+      - wud.enabled=true
+      - wud.tag.display.name=qbittorrent
+
+  seerr:
+    <<: *common
+    container_name: seerr
+    image: sctx/seerr:latest
+    environment:
+      <<: *commonenv
+      DOCKER_MODS: ghcr.io/themepark-dev/theme.park:overseerr
+      TP_THEME: ${TP_THEME:-nord}
+    volumes:
+      - ${CONFIG_ROOT}/seerr:/app/config
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.seerr.rule=Host(`seerr.${DOMAIN:-localhost}`)
+      - traefik.http.services.seerr.loadbalancer.server.port=5055
+      - wud.enabled=true
+      - wud.tag.display.name=seerr
+
+  bazarr:
+    <<: *common
+    container_name: bazarr
+    image: lscr.io/linuxserver/bazarr:latest
+    environment:
+      <<: *commonenv
+      DOCKER_MODS: ghcr.io/themepark-dev/theme.park:bazarr
+      TP_THEME: ${TP_THEME:-nord}
+    volumes:
+      - ${CONFIG_ROOT}/bazarr:/config
+      - ${STORAGE_ROOT}/SERIES:${SERIES_PATH}:ro
+      - ${STORAGE_ROOT}/MOVIES:${MOVIES_PATH}:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.bazarr.rule=Host(`bazarr.${DOMAIN:-localhost}`)
+      - traefik.http.services.bazarr.loadbalancer.server.port=6767
+      - wud.enabled=true
+      - wud.tag.display.name=bazarr
+
+  recyclarr:
+    <<: *common
+    container_name: recyclarr
+    image: recyclarr/recyclarr:latest
+    environment:
+      <<: *commonenv
+    volumes:
+      - ${CONFIG_ROOT}/recyclarr:/config
+    labels:
+      - wud.enabled=true
+      - wud.tag.display.name=recyclarr
+
+  flaresolverr:
+    <<: *common
+    container_name: flaresolverr
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    environment:
+      LOG_LEVEL: info
+      TZ: ${TZ:-UTC}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.flaresolverr.rule=Host(`flaresolverr.${DOMAIN:-localhost}`)
+      - traefik.http.services.flaresolverr.loadbalancer.server.port=8191
+      - wud.enabled=true
+      - wud.tag.display.name=flaresolverr
+
+  homarr:
+    <<: *common
+    container_name: homarr
+    image: ghcr.io/ajnart/homarr:latest
+    environment:
+      <<: *commonenv
+    volumes:
+      - ${CONFIG_ROOT}/homarr:/app/data
+      - ${CONFIG_ROOT}/homarr/icons:/app/public/icons
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.homarr.rule=Host(`homarr.${DOMAIN:-localhost}`)
+      - traefik.http.services.homarr.loadbalancer.server.port=7575
+      - wud.enabled=true
+      - wud.tag.display.name=homarr
+
+  deleterr:
+    <<: *common
+    container_name: deleterr
+    image: ghcr.io/rfsbraz/deleterr:latest
+    environment:
+      <<: *commonenv
+    volumes:
+      - ${CONFIG_ROOT}/deleterr:/config
+      - ${STORAGE_ROOT}/SERIES:${SERIES_PATH}:ro
+      - ${STORAGE_ROOT}/MOVIES:${MOVIES_PATH}:ro
+      - ${STORAGE_ROOT}/TORRENTS/COMPLETE:${DOWNLOADS_PATH}/complete:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.deleterr.rule=Host(`deleterr.${DOMAIN:-localhost}`)
+      - traefik.http.services.deleterr.loadbalancer.server.port=7474
+      - wud.enabled=true
+      - wud.tag.display.name=deleterr
+
+  wud:
+    <<: *common
+    container_name: wud
+    image: fmartinou/whats-up-docker:latest
+    environment:
+      <<: *commonenv
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+      WUD_WATCHER_LOCAL_CRON: "0 0 4 * * *"
+      WUD_TRIGGER_MOCK_EXAMPLE_MOCK: "true"
+    volumes:
+      - wud_data:/store
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wud.rule=Host(`wud.${DOMAIN:-localhost}`)
+      - traefik.http.services.wud.loadbalancer.server.port=3000
+      - wud.enabled=true
+      - wud.tag.display.name=wud
+
+  jellystat-db:
+    image: postgres:15
+    container_name: jellystat-db
+    environment:
+      POSTGRES_DB: jellystat
+      POSTGRES_USER: jellystat
+      POSTGRES_PASSWORD: ${JELLYSTAT_DB_PASSWORD:-jellystat}
+    volumes:
+      - jellystat_db:/var/lib/postgresql/data
+    networks:
+      - media_network
+    restart: unless-stopped
+
+  jellystat:
+    <<: *common
+    image: cyfershepard/jellystat:latest
+    container_name: jellystat
+    environment:
+      <<: *commonenv
+      POSTGRES_USER: jellystat
+      POSTGRES_PASSWORD: ${JELLYSTAT_DB_PASSWORD:-jellystat}
+      POSTGRES_IP: jellystat-db
+      POSTGRES_PORT: 5432
+      JWT_SECRET: ${JELLYSTAT_JWT_SECRET:-change-me-in-production}
+    volumes:
+      - jellystat_data:/app/backend/backup-data
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.jellystat.rule=Host(`jellystat.${DOMAIN:-localhost}`)
+      - traefik.http.services.jellystat.loadbalancer.server.port=3000
+      - wud.enabled=true
+      - wud.tag.display.name=jellystat
+
+  huntarr:
+    <<: *common
+    image: huntarr/huntarr:latest
+    container_name: huntarr
+    environment:
+      <<: *commonenv
+      HUNTARR_PORT: 9705
+    volumes:
+      - ${CONFIG_ROOT}/huntarr:/config
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.huntarr.rule=Host(`huntarr.${DOMAIN:-localhost}`)
+      - traefik.http.services.huntarr.loadbalancer.server.port=9705
+      - wud.enabled=true
+      - wud.tag.display.name=huntarr
+
+  recommendarr:
+    <<: *common
+    image: tannermiddleton/recommendarr:latest
+    container_name: recommendarr
+    environment:
+      <<: *commonenv
+      NODE_ENV: production
+      PORT: 3001
+      PUBLIC_URL: http://recommendarr.${DOMAIN:-localhost}
+    volumes:
+      - ${CONFIG_ROOT}/recommendarr:/app/server/data
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.recommendarr.rule=Host(`recommendarr.${DOMAIN:-localhost}`)
+      - traefik.http.services.recommendarr.loadbalancer.server.port=3001
+      - wud.enabled=true
+      - wud.tag.display.name=recommendarr
+
+  boxarr:
+    <<: *common
+    image: iongpt/boxarr:latest
+    container_name: boxarr
+    environment:
+      <<: *commonenv
+    volumes:
+      - ${CONFIG_ROOT}/boxarr:/config
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.boxarr.rule=Host(`boxarr.${DOMAIN:-localhost}`)
+      - traefik.http.services.boxarr.loadbalancer.server.port=5056
+      - wud.enabled=true
+      - wud.tag.display.name=boxarr
+
+  profilarr:
+    <<: *common
+    image: santiagosayshey/profilarr:latest
+    container_name: profilarr
+    environment:
+      <<: *commonenv
+    volumes:
+      - ${CONFIG_ROOT}/profilarr:/config
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.profilarr.rule=Host(`profilarr.${DOMAIN:-localhost}`)
+      - traefik.http.services.profilarr.loadbalancer.server.port=6868
+      - wud.enabled=true
+      - wud.tag.display.name=profilarr
+
+  configarr:
+    <<: *common
+    image: ghcr.io/raydak-labs/configarr:latest
+    container_name: configarr
+    environment:
+      <<: *commonenv
+    volumes:
+      - ${CONFIG_ROOT}/configarr:/app/config
+      - ${CONFIG_ROOT}/configarr/repos:/app/repos
+    labels:
+      - wud.enabled=true
+      - wud.tag.display.name=configarr
+
+  cloudflared:
+    <<: *common
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    profiles:
+      - cloudflare
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    labels:
+      - wud.enabled=true
+      - wud.tag.display.name=cloudflared
+
+networks:
+  media_network:
+    name: media_network

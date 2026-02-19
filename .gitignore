@@ -1,0 +1,19 @@
+# Environment files
+.env
+
+# Runtime directories
+/storage/
+/config/
+/logs/
+/backups/
+
+# Allow defaults
+!/__defaults__/storage/
+!/__defaults__/config/
+!/__defaults__/logs/
+!/__defaults__/backups/
+!/__defaults__/.env
+
+# OS specific files
+.DS_Store
+Thumbs.db

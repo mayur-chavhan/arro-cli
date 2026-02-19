@@ -1,0 +1,345 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml syntax
+        run: |
+          # Install docker-compose for validation
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
+          
+          # Create a minimal .env for validation
+          cp .env.example .env
+          
+          # Validate compose file syntax
+          docker-compose config --quiet 2>&1 || {
+            echo "::error::docker-compose.yml syntax is invalid"
+            exit 1
+          }
+          echo "✅ docker-compose.yml syntax is valid"
+
+      - name: Validate __defaults__/docker-compose.yml
+        run: |
+          cd __defaults__
+          docker-compose config --quiet 2>&1 || {
+            echo "::error::__defaults__/docker-compose.yml syntax is invalid"
+            exit 1
+          }
+          echo "✅ __defaults__/docker-compose.yml syntax is valid"
+
+      - name: Shell script linting
+        run: |
+          sudo apt-get install -y shellcheck
+          
+          # Lint all shell scripts
+          for script in *.sh; do
+            if [ -f "$script" ]; then
+              echo "Linting $script..."
+              shellcheck "$script" || true  # Don't fail on warnings
+            fi
+          done
+
+      - name: Check required files exist
+        run: |
+          required_files=(
+            "docker-compose.yml"
+            ".env.example"
+            "install.sh"
+            "arrgo.sh"
+            "init.sh"
+            "reset.sh"
+            "VERSION"
+            "README.md"
+          )
+          
+          missing=0
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Missing required file: $file"
+              missing=$((missing + 1))
+            else
+              echo "✅ Found: $file"
+            fi
+          done
+          
+          if [ $missing -gt 0 ]; then
+            exit 1
+          fi
+
+      - name: Check documentation completeness
+        run: |
+          doc_files=(
+            "docs/installation.md"
+            "docs/configuration.md"
+            "docs/services.md"
+            "docs/migration.md"
+            "docs/maintenance.md"
+            "docs/security.md"
+            "docs/troubleshooting.md"
+            "docs/post-install.md"
+            "docs/jellyfin-setup.md"
+          )
+          
+          missing=0
+          for doc in "${doc_files[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "::warning::Missing documentation: $doc"
+              missing=$((missing + 1))
+            else
+              echo "✅ Found: $doc"
+            fi
+          done
+          
+          if [ $missing -gt 0 ]; then
+            echo "::warning::Some documentation files are missing"
+          fi
+
+  test-services:
+    name: Test Service Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check service definitions
+        run: |
+          # Check that all expected services are defined
+          expected_services=(
+            "traefik"
+            "jellyfin"
+            "dockhand"
+            "docker-socket-proxy"
+            "sonarr"
+            "radarr"
+            "prowlarr"
+            "jackett"
+            "qbittorrent"
+            "seerr"
+            "bazarr"
+            "homarr"
+            "wud"
+            "jellystat"
+            "jellystat-db"
+            "huntarr"
+            "recommendarr"
+            "boxarr"
+            "profilarr"
+            "configarr"
+          )
+          
+          missing=0
+          for service in "${expected_services[@]}"; do
+            if grep -q "^\s*${service}:" docker-compose.yml; then
+              echo "✅ Service defined: $service"
+            else
+              echo "::error::Missing service definition: $service"
+              missing=$((missing + 1))
+            fi
+          done
+          
+          if [ $missing -gt 0 ]; then
+            exit 1
+          fi
+
+      - name: Verify no deprecated services
+        run: |
+          deprecated_services=(
+            "plex"
+            "portainer"
+            "lidarr"
+            "readarr"
+            "calibre"
+            "organizr"
+          )
+          
+          found=0
+          for service in "${deprecated_services[@]}"; do
+            if grep -q "^\s*${service}:" docker-compose.yml; then
+              echo "::error::Deprecated service still defined: $service"
+              found=$((found + 1))
+            else
+              echo "✅ Deprecated service removed: $service"
+            fi
+          done
+          
+          if [ $found -gt 0 ]; then
+            exit 1
+          fi
+
+      - name: Check Traefik labels
+        run: |
+          # Verify services have proper Traefik routing labels
+          services_with_traefik=(
+            "jellyfin"
+            "dockhand"
+            "sonarr"
+            "radarr"
+            "prowlarr"
+            "jackett"
+            "qbittorrent"
+            "seerr"
+            "bazarr"
+            "homarr"
+            "wud"
+            "jellystat"
+            "huntarr"
+            "recommendarr"
+            "boxarr"
+            "profilarr"
+          )
+          
+          missing=0
+          for service in "${services_with_traefik[@]}"; do
+            if grep -A 20 "^\s*${service}:" docker-compose.yml | grep -q "traefik.enable=true"; then
+              echo "✅ Traefik labels found for: $service"
+            else
+              echo "::warning::Missing Traefik labels for: $service"
+              missing=$((missing + 1))
+            fi
+          done
+
+      - name: Check WUD labels
+        run: |
+          # Verify services have WUD update detection labels
+          services_with_wud=(
+            "traefik"
+            "jellyfin"
+            "dockhand"
+            "sonarr"
+            "radarr"
+            "prowlarr"
+            "jackett"
+            "qbittorrent"
+            "seerr"
+            "bazarr"
+            "homarr"
+            "wud"
+            "jellystat"
+          )
+          
+          for service in "${services_with_wud[@]}"; do
+            if grep -A 20 "^\s*${service}:" docker-compose.yml | grep -q "wud.enabled=true"; then
+              echo "✅ WUD labels found for: $service"
+            else
+              echo "::warning::Missing WUD labels for: $service"
+            fi
+          done
+
+      - name: Verify Docker Socket Proxy usage
+        run: |
+          # Check that services use socket proxy instead of direct socket mount
+          if grep -q "/var/run/docker.sock" docker-compose.yml; then
+            # Only docker-socket-proxy should have direct socket access
+            socket_lines=$(grep -n "/var/run/docker.sock" docker-compose.yml | grep -v "docker-socket-proxy" || true)
+            if [ -n "$socket_lines" ]; then
+              echo "::warning::Direct socket mount found outside docker-socket-proxy:"
+              echo "$socket_lines"
+            else
+              echo "✅ Docker socket only mounted in docker-socket-proxy"
+            fi
+          fi
+          
+          # Check socket proxy connection
+          if grep -q "DOCKER_HOST: tcp://docker-socket-proxy:2375" docker-compose.yml; then
+            echo "✅ Services configured to use Docker Socket Proxy"
+          else
+            echo "::warning::Some services may not be using Docker Socket Proxy"
+          fi
+
+  security-check:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for secrets in files
+        run: |
+          # Check for potential secrets in tracked files
+          secret_patterns=(
+            "password\s*=\s*[^[:space:]]+"
+            "api_key\s*=\s*[^[:space:]]+"
+            "secret\s*=\s*[^[:space:]]+"
+            "token\s*=\s*[^[:space:]]+"
+          )
+          
+          found=0
+          for pattern in "${secret_patterns[@]}"; do
+            matches=$(grep -ri "$pattern" --include="*.yml" --include="*.yaml" --include="*.sh" --exclude-dir=.git . 2>/dev/null | grep -v "example" | grep -v "placeholder" | grep -v "\${" || true)
+            if [ -n "$matches" ]; then
+              echo "::warning::Potential secret pattern found:"
+              echo "$matches"
+              found=$((found + 1))
+            fi
+          done
+          
+          if [ $found -eq 0 ]; then
+            echo "✅ No hardcoded secrets found"
+          fi
+
+      - name: Check .gitignore
+        run: |
+          required_ignores=(
+            ".env"
+            "config/"
+            "logs/"
+            "backups/"
+          )
+          
+          missing=0
+          for ignore in "${required_ignores[@]}"; do
+            if grep -q "$ignore" .gitignore; then
+              echo "✅ Ignored: $ignore"
+            else
+              echo "::warning::Not in .gitignore: $ignore"
+              missing=$((missing + 1))
+            fi
+          done
+
+  build-test:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    needs: [lint, test-services]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull images (dry run)
+        run: |
+          # Create minimal .env
+          cp .env.example .env
+          
+          # List all images that would be pulled
+          echo "Images to be pulled:"
+          docker-compose config | grep "image:" | sed 's/.*image: //' | sort -u
+
+      - name: Test service startup (mock)
+        run: |
+          # This is a mock test - we don't actually start services in CI
+          # as they require significant resources and external dependencies
+          
+          echo "✅ Service startup would proceed with:"
+          echo "  - Docker Socket Proxy for secure API access"
+          echo "  - Traefik for reverse proxy"
+          echo "  - Jellyfin as media server"
+          echo "  - All *arr services configured"
+          
+          # Verify the startup script exists and is executable
+          if [ -x "arrgo.sh" ]; then
+            echo "✅ arrgo.sh is executable"
+          else
+            echo "::error::arrgo.sh is not executable"
+            exit 1
+          fi
