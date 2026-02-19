@@ -65,18 +65,6 @@ update_env_var() {
     mv "$temp_file" "$env_file"
 }
 
-generate_calibre_config() {
-    create_dir "$CONFIG_ROOT/calibre"
-    
-    # Check if source metadata.db exists
-    if [ -f "./misc/metadata.db" ]; then
-        cp "./misc/metadata.db" "$CONFIG_ROOT/calibre/metadata.db"
-        log "BLUE" "Copied Calibre metadata database"
-    else
-        log "YELLOW" "Warning: metadata.db not found in ./misc directory"
-    fi
-}
-
 generate_qbittorrent_categories() {
     local categories_json="$CONFIG_ROOT/qbittorrent/qBittorrent/categories.json"
     create_file "$categories_json" "$(cat << EOF
@@ -86,12 +74,6 @@ generate_qbittorrent_categories() {
     },
     "${QB_CATEGORY_MOVIES}": {
         "save_path": "${DOWNLOADS_PATH}/complete/${QB_CATEGORY_MOVIES}"
-    },
-    "${QB_CATEGORY_MUSIC}": {
-        "save_path": "${DOWNLOADS_PATH}/complete/${QB_CATEGORY_MUSIC}"
-    },
-    "${QB_CATEGORY_BOOKS}": {
-        "save_path": "${DOWNLOADS_PATH}/complete/${QB_CATEGORY_BOOKS}"
     }
 }
 EOF
@@ -113,7 +95,7 @@ Session\MaxRatioAction=0
 Session\GlobalMaxRatio=1.0
 Session\GlobalMaxSeedingMinutes=-1
 Session\MaxRatioAction=PauseIfSeedingTimeReached
-Session\GlobalMaxInactiveSeedingTime=0
+Session\GlobalInactiveSeedingTime=0
 Session\MaxInactiveSeedingTime=0
 Session\ShareLimitAction=0
 
@@ -140,7 +122,7 @@ Configuration\Backup\DeleteOld=false
 EOF
 )"
 
-generate_qbittorrent_categories
+    generate_qbittorrent_categories
 }
 
 generate_arr_base_config() {
@@ -240,7 +222,7 @@ entryPoints:
     
 providers:
   docker:
-    endpoint: "unix:///var/run/docker.sock"
+    endpoint: "tcp://docker-socket-proxy:2375"
     exposedByDefault: false
     watch: true
     network: media_network
@@ -257,9 +239,9 @@ EOF
 
 generate_deleterr_config() {
     create_file "$CONFIG_ROOT/deleterr/settings.yaml" "$(cat << EOF
-plex:
-  url: "http://plex:32400"
-  token: "${PLEX_CLAIM}"
+jellyfin:
+  url: "http://jellyfin:8096"
+  api_key: "${JELLYFIN_API_KEY:-}"
 
 radarr:
   - name: "Radarr"
@@ -272,8 +254,7 @@ sonarr:
     api_key: "${SONARR_API_KEY}"
 
 dry_run: true
-plex_library_scan_after_actions: false
-tautulli_library_scan_after_actions: false
+jellyfin_library_scan_after_actions: false
 action_delay: 25
 
 libraries:
@@ -343,8 +324,6 @@ generate_recyclarr_config() {
 # Get Trash IDs from: https://trash-guides.info/
 # - Movies (Radarr): https://trash-guides.info/Radarr/
 # - Series (Sonarr): https://trash-guides.info/Sonarr/
-# - Music (Lidarr): https://trash-guides.info/Lidarr/
-# - Books (Readarr): https://trash-guides.info/Readarr/
 
 # Sonarr Configuration
 sonarr:
@@ -422,64 +401,6 @@ radarr:
           - name: HD-1080p
             score: 100
 
-# Lidarr Configuration
-lidarr:
-  - base_url: http://lidarr:8686
-    api_key: ${LIDARR_API_KEY}
-    delete_old_custom_formats: true
-    replace_existing_custom_formats: true
-    quality_definition:
-      type: music
-      preferred_ratio: 0.5
-    quality_profiles:
-      - name: Music-Standard
-        reset_unmatched_scores: true
-        qualities:
-          - name: FLAC
-            score: 200
-          - name: MP3
-            score: 100
-    custom_formats:
-      # Audio Quality
-      - trash_ids: []
-        quality_profiles:
-          - name: Music-Standard
-            score: 100
-      # Release Types
-      - trash_ids: []
-        quality_profiles:
-          - name: Music-Standard
-            score: 100
-
-# Readarr Configuration
-readarr:
-  - base_url: http://readarr:8787
-    api_key: ${READARR_API_KEY}
-    delete_old_custom_formats: true
-    replace_existing_custom_formats: true
-    quality_definition:
-      type: book
-      preferred_ratio: 0.5
-    quality_profiles:
-      - name: Ebook-Standard
-        reset_unmatched_scores: true
-        qualities:
-          - name: EPUB
-            score: 200
-          - name: PDF
-            score: 100
-    custom_formats:
-      # Book Formats
-      - trash_ids: []
-        quality_profiles:
-          - name: Ebook-Standard
-            score: 100
-      # Release Types
-      - trash_ids: []
-        quality_profiles:
-          - name: Ebook-Standard
-            score: 100
-
 # Schedule Configuration
 schedule:
   - name: sync-hourly
@@ -495,11 +416,21 @@ EOF
 generate_other_configs() {
     create_dir "$CONFIG_ROOT/deleterr"
     create_dir "$CONFIG_ROOT/deleterr/logs"
-    create_dir "$CONFIG_ROOT/plex/transcode"
-    log "BLUE" "Created Deleterr directories and logs folder"
+    create_dir "$CONFIG_ROOT/jellyfin"
+    create_dir "$CONFIG_ROOT/jellyfin/transcode"
+    create_dir "$CONFIG_ROOT/jellystat"
+    create_dir "$CONFIG_ROOT/dockhand"
+    create_dir "$CONFIG_ROOT/huntarr"
+    create_dir "$CONFIG_ROOT/recommendarr"
+    create_dir "$CONFIG_ROOT/boxarr"
+    create_dir "$CONFIG_ROOT/profilarr"
+    create_dir "$CONFIG_ROOT/configarr"
+    create_dir "$CONFIG_ROOT/jackett"
+    create_dir "$CONFIG_ROOT/homarr"
+    create_dir "$CONFIG_ROOT/wud"
+    log "BLUE" "Created all service directories"
     generate_deleterr_config
     generate_recyclarr_config
-    generate_calibre_config
     log "BLUE" "Generated Recyclarr configuration"
 }
 
@@ -524,12 +455,6 @@ log "BLUE" "Generated Sonarr API key"
 RADARR_API_KEY=$(generate_arr_configs "radarr" "7878" "${QB_CATEGORY_MOVIES}" "${MOVIES_PATH}")
 log "BLUE" "Generated Radarr API key"
 
-LIDARR_API_KEY=$(generate_arr_configs "lidarr" "8686" "${QB_CATEGORY_MUSIC}" "${MUSIC_PATH}")
-log "BLUE" "Generated Lidarr API key"
-
-READARR_API_KEY=$(generate_arr_configs "readarr" "8787" "${QB_CATEGORY_BOOKS}" "${BOOKS_PATH}")
-log "BLUE" "Generated Readarr API key"
-
 PROWLARR_API_KEY=$(generate_arr_base_config "prowlarr" "9696")
 log "BLUE" "Generated Prowlarr API key"
 
@@ -542,8 +467,6 @@ generate_other_configs
 log "BLUE" "Updating API keys in .env file..."
 update_env_var "SONARR_API_KEY" "$SONARR_API_KEY"
 update_env_var "RADARR_API_KEY" "$RADARR_API_KEY"
-update_env_var "LIDARR_API_KEY" "$LIDARR_API_KEY"
-update_env_var "READARR_API_KEY" "$READARR_API_KEY"
 update_env_var "PROWLARR_API_KEY" "$PROWLARR_API_KEY"
 
 log "GREEN" "Configuration generation complete!"

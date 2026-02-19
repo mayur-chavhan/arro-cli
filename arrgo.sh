@@ -113,12 +113,15 @@ check_disk_space() {
 # Function to display ASCII art logo
 show_logo() {
     cat << "EOF"
-  ____              _        _        _             
- / ___|__ _ _ __ _| |_ __ _(_)_ __  / \   _ __ _ __ 
-| |   / _` | '_ \__| __/ _` | | '_ \/ _ \ | '__| '__|
-| |__| (_| | |_) | | || (_| | | | | / ___ \| |  | |
- \____\__,_| .__/|_|\__\__,_|_|_| |_/_/   \_\_|  |_|
-           |_|                                        
+   ░███                        ░██████             
+  ░██░██                      ░██   ░██            
+ ░██  ░██  ░██░████ ░██░████ ░██         ░███████  
+░█████████ ░███     ░███     ░██  █████ ░██    ░██ 
+░██    ░██ ░██      ░██      ░██     ██ ░██    ░██ 
+░██    ░██ ░██      ░██       ░██  ░███ ░██    ░██ 
+░██    ░██ ░██      ░██        ░█████░█  ░███████  
+                                                   
+                                                   by Mayur Chavhan                                                                         
 EOF
     echo "Version: $VERSION"
     echo
@@ -178,8 +181,8 @@ check_health() {
 
     # Check configurations
     local required_configs=(
-        "plex" "sonarr" "radarr" "lidarr" "readarr" "prowlarr" 
-        "overseerr" "bazarr" "qbittorrent"
+        "jellyfin" "sonarr" "radarr" "prowlarr" 
+        "seerr" "bazarr" "qbittorrent"
     )
     local missing_configs=0
     
@@ -196,7 +199,7 @@ check_health() {
 
     # Check ports
     local required_ports=(
-        "$TRAEFIK_PORT" "$PORTAINER_PORT" "$PORTAINER_EDGE_PORT"
+        "$TRAEFIK_PORT"
     )
     
     for port in "${required_ports[@]}"; do
