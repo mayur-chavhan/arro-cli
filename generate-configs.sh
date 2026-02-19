@@ -434,7 +434,7 @@ entryPoints:
     
 providers:
   docker:
-    endpoint: "tcp://docker-socket-proxy:2375"
+    endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
     watch: true
     network: media_network
