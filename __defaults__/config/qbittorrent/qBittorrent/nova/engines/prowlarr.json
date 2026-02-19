@@ -1,0 +1,4 @@
+{
+    "api_key": "${PROWLARR_API_KEY}",
+    "url": "http://prowlarr:9696"
+}

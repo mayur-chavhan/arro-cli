@@ -1,0 +1,5 @@
+{
+    "api_key": "${JACKETT_API_KEY}",
+    "url": "http://jackett:9117",
+    "indexer": "all"
+}

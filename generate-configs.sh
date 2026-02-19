@@ -1,19 +1,15 @@
 #!/bin/bash
 
-# Color definitions
+set -e
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Exit on any error
-set -e
-
-# Create logs directory
 mkdir -p logs
 
-# Logging function
 log() {
     local level=$1
     shift
@@ -22,7 +18,6 @@ log() {
     echo -e "${!level}[${level}]${NC} ${timestamp} - $msg" >&2 | tee -a logs/config-gen.log
 }
 
-# Function to safely create directory
 create_dir() {
     local dir="$1"
     if [ ! -d "$dir" ]; then
@@ -31,7 +26,6 @@ create_dir() {
     fi
 }
 
-# Function to safely create file with content
 create_file() {
     local file="$1"
     local content="$2"
@@ -40,7 +34,6 @@ create_file() {
     log "BLUE" "Created file: $file" >&2
 }
 
-# Function to update env file
 update_env_var() {
     local key=$1
     local value=$2
@@ -65,22 +58,10 @@ update_env_var() {
     mv "$temp_file" "$env_file"
 }
 
-generate_qbittorrent_categories() {
-    local categories_json="$CONFIG_ROOT/qbittorrent/qBittorrent/categories.json"
-    create_file "$categories_json" "$(cat << EOF
-{
-    "${QB_CATEGORY_TV}": {
-        "save_path": "${DOWNLOADS_PATH}/complete/${QB_CATEGORY_TV}"
-    },
-    "${QB_CATEGORY_MOVIES}": {
-        "save_path": "${DOWNLOADS_PATH}/complete/${QB_CATEGORY_MOVIES}"
-    }
-}
-EOF
-)"
-}
-
 generate_qbittorrent_config() {
+    local prowlarr_api_key=$1
+    local jackett_api_key=$2
+    
     create_dir "$CONFIG_ROOT/qbittorrent/qBittorrent"
     create_file "$CONFIG_ROOT/qbittorrent/qBittorrent/qBittorrent.conf" "$(cat << EOF
 [AutoRun]
@@ -122,23 +103,99 @@ Configuration\Backup\DeleteOld=false
 EOF
 )"
 
-    generate_qbittorrent_categories
+    create_file "$CONFIG_ROOT/qbittorrent/qBittorrent/categories.json" "$(cat << EOF
+{
+    "${QB_CATEGORY_TV}": {
+        "save_path": "${DOWNLOADS_PATH}/complete/${QB_CATEGORY_TV}"
+    },
+    "${QB_CATEGORY_MOVIES}": {
+        "save_path": "${DOWNLOADS_PATH}/complete/${QB_CATEGORY_MOVIES}"
+    }
+}
+EOF
+)"
+
+    create_dir "$CONFIG_ROOT/qbittorrent/qBittorrent/nova/engines"
+    
+    create_file "$CONFIG_ROOT/qbittorrent/qBittorrent/nova/engines/prowlarr.json" "$(cat << EOF
+{
+    "api_key": "${prowlarr_api_key}",
+    "url": "http://prowlarr:9696"
+}
+EOF
+)"
+
+    create_file "$CONFIG_ROOT/qbittorrent/qBittorrent/nova/engines/jackett.json" "$(cat << EOF
+{
+    "api_key": "${jackett_api_key}",
+    "url": "http://jackett:9117",
+    "indexer": "all"
+}
+EOF
+)"
 }
 
-generate_arr_base_config() {
-    local service=$1
-    local port=$2
+generate_prowlarr_config() {
     local api_key=$(openssl rand -hex 32)
     
-    create_dir "$CONFIG_ROOT/$service"
-    create_file "$CONFIG_ROOT/$service/config.xml" "$(cat << EOF
+    create_dir "$CONFIG_ROOT/prowlarr"
+    create_file "$CONFIG_ROOT/prowlarr/config.xml" "$(cat << EOF
 <?xml version="1.0" encoding="utf-8"?>
 <Config>
   <LogLevel>info</LogLevel>
   <UpdateMechanism>Docker</UpdateMechanism>
-  <UrlBase>${BASE_PATH:-}/${service}</UrlBase>
+  <UrlBase>${BASE_PATH:-}/prowlarr</UrlBase>
   <Branch>main</Branch>
-  <Port>${port}</Port>
+  <Port>9696</Port>
+  <BindAddress>*</BindAddress>
+  <ApiKey>${api_key}</ApiKey>
+  <AuthenticationMethod>None</AuthenticationMethod>
+  <AnalyticsEnabled>False</AnalyticsEnabled>
+  <SslPort>0</SslPort>
+  <EnableSsl>False</EnableSsl>
+  <LaunchBrowser>False</LaunchBrowser>
+  <InstanceName>Prowlarr</InstanceName>
+</Config>
+EOF
+)"
+    printf "%s" "$api_key"
+}
+
+generate_jackett_config() {
+    local api_key=$(openssl rand -hex 32)
+    
+    create_dir "$CONFIG_ROOT/jackett"
+    create_file "$CONFIG_ROOT/jackett/Jackett/ServerConfig.json" "$(cat << EOF
+{
+  "Port": 9117,
+  "AllowExternal": true,
+  "APIKey": "${api_key}",
+  "AdminPassword": "",
+  "InstanceId": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
+  "BlackholeDir": "",
+  "UpdateDisabled": true,
+  "UpdatePrerelease": false,
+  "BasePathOverride": "${BASE_PATH:-}/jackett",
+  "OmdbApiKey": "",
+  "OmdbApiUrl": ""
+}
+EOF
+)"
+    printf "%s" "$api_key"
+}
+
+generate_sonarr_config() {
+    local api_key=$(openssl rand -hex 32)
+    
+    create_dir "$CONFIG_ROOT/sonarr"
+    create_file "$CONFIG_ROOT/sonarr/config.xml" "$(cat << EOF
+<?xml version="1.0" encoding="utf-8"?>
+<Config>
+  <LogLevel>info</LogLevel>
+  <UpdateMechanism>Docker</UpdateMechanism>
+  <UrlBase>${BASE_PATH:-}/sonarr</UrlBase>
+  <Branch>main</Branch>
+  <Port>8989</Port>
   <BindAddress>*</BindAddress>
   <ApiKey>${api_key}</ApiKey>
   <AuthenticationMethod>None</AuthenticationMethod>
@@ -149,20 +206,10 @@ generate_arr_base_config() {
 </Config>
 EOF
 )"
-    printf "%s" "$api_key"  # Use printf to avoid newline
-}
 
-generate_arr_configs() {
-    local service=$1
-    local port=$2
-    local category=$3
-    local root_folder=$4
+    create_dir "$CONFIG_ROOT/sonarr/config"
     
-    create_dir "$CONFIG_ROOT/$service/config"
-    local api_key
-    api_key=$(generate_arr_base_config "$service" "$port")
-    
-    create_file "$CONFIG_ROOT/$service/config/mediamanagement.json" "$(cat << EOF
+    create_file "$CONFIG_ROOT/sonarr/config/mediamanagement.json" "$(cat << EOF
 {
   "autoUnmonitorPreviouslyDownloadedEpisodes": false,
   "recycleBin": "",
@@ -180,12 +227,12 @@ generate_arr_configs() {
   "importExtraFiles": true,
   "extraFileExtensions": "srt,sub,idx,nfo",
   "enableMediaInfo": true,
-  "defaultRootFolderPath": "${root_folder}"
+  "defaultRootFolderPath": "${SERIES_PATH}"
 }
 EOF
 )"
 
-    create_file "$CONFIG_ROOT/$service/config/downloadclient.json" "$(cat << EOF
+    create_file "$CONFIG_ROOT/sonarr/config/downloadclient.json" "$(cat << EOF
 {
   "downloadClientConfigs": [
     {
@@ -199,15 +246,180 @@ EOF
       "port": 8080,
       "username": "admin",
       "password": "adminadmin",
-      "category": "${category}",
-      "removeCompletedDownloads": ${DELETE_AFTER_SEED},
+      "category": "${QB_CATEGORY_TV}",
+      "removeCompletedDownloads": ${DELETE_AFTER_SEED:-false},
       "removeFailedDownloads": true
     }
   ]
 }
 EOF
 )"
-    printf "%s" "$api_key"  # Use printf to avoid newline
+
+    printf "%s" "$api_key"
+}
+
+generate_sonarr_indexers() {
+    local prowlarr_api_key=$1
+    local jackett_api_key=$2
+    
+    create_file "$CONFIG_ROOT/sonarr/config/indexers.json" "$(cat << EOF
+{
+  "indexerConfigs": [
+    {
+      "enable": true,
+      "name": "Prowlarr",
+      "implementation": "Newznab",
+      "configContract": "NewznabSettings",
+      "priority": 25,
+      "enableRss": true,
+      "enableAutomaticSearch": true,
+      "enableInteractiveSearch": true,
+      "settings": {
+        "baseUrl": "http://prowlarr:9696",
+        "apiPath": "/api",
+        "apiKey": "${prowlarr_api_key}",
+        "categories": [5000, 5030, 5040]
+      }
+    },
+    {
+      "enable": true,
+      "name": "Jackett",
+      "implementation": "Torznab",
+      "configContract": "TorznabSettings",
+      "priority": 25,
+      "enableRss": true,
+      "enableAutomaticSearch": true,
+      "enableInteractiveSearch": true,
+      "settings": {
+        "baseUrl": "http://jackett:9117/torznab/all/api",
+        "apiPath": "/api",
+        "apiKey": "${jackett_api_key}",
+        "categories": [5000, 5030, 5040]
+      }
+    }
+  ]
+}
+EOF
+)"
+}
+
+generate_radarr_config() {
+    local api_key=$(openssl rand -hex 32)
+    
+    create_dir "$CONFIG_ROOT/radarr"
+    create_file "$CONFIG_ROOT/radarr/config.xml" "$(cat << EOF
+<?xml version="1.0" encoding="utf-8"?>
+<Config>
+  <LogLevel>info</LogLevel>
+  <UpdateMechanism>Docker</UpdateMechanism>
+  <UrlBase>${BASE_PATH:-}/radarr</UrlBase>
+  <Branch>main</Branch>
+  <Port>7878</Port>
+  <BindAddress>*</BindAddress>
+  <ApiKey>${api_key}</ApiKey>
+  <AuthenticationMethod>None</AuthenticationMethod>
+  <AnalyticsEnabled>False</AnalyticsEnabled>
+  <SslPort>0</SslPort>
+  <EnableSsl>False</EnableSsl>
+  <LaunchBrowser>False</LaunchBrowser>
+</Config>
+EOF
+)"
+
+    create_dir "$CONFIG_ROOT/radarr/config"
+    
+    create_file "$CONFIG_ROOT/radarr/config/mediamanagement.json" "$(cat << EOF
+{
+  "autoUnmonitorPreviouslyDownloadedMovies": false,
+  "recycleBin": "",
+  "recycleBinCleanupDays": 7,
+  "downloadPropersAndRepacks": "preferAndUpgrade",
+  "createEmptyMovieFolders": false,
+  "deleteEmptyFolders": true,
+  "fileDate": "none",
+  "rescanAfterRefresh": "always",
+  "setPermissionsLinux": true,
+  "chmodFolder": "755",
+  "skipFreeSpaceCheckWhenImporting": false,
+  "minimumFreeSpaceWhenImporting": 100,
+  "copyUsingHardlinks": true,
+  "importExtraFiles": true,
+  "extraFileExtensions": "srt,sub,idx,nfo",
+  "enableMediaInfo": true,
+  "defaultRootFolderPath": "${MOVIES_PATH}"
+}
+EOF
+)"
+
+    create_file "$CONFIG_ROOT/radarr/config/downloadclient.json" "$(cat << EOF
+{
+  "downloadClientConfigs": [
+    {
+      "enable": true,
+      "protocol": "torrent",
+      "priority": 1,
+      "name": "qBittorrent",
+      "implementation": "QBittorrent",
+      "configContract": "QBittorrentSettings",
+      "host": "qbittorrent",
+      "port": 8080,
+      "username": "admin",
+      "password": "adminadmin",
+      "category": "${QB_CATEGORY_MOVIES}",
+      "removeCompletedDownloads": ${DELETE_AFTER_SEED:-false},
+      "removeFailedDownloads": true
+    }
+  ]
+}
+EOF
+)"
+
+    printf "%s" "$api_key"
+}
+
+generate_radarr_indexers() {
+    local prowlarr_api_key=$1
+    local jackett_api_key=$2
+    
+    create_file "$CONFIG_ROOT/radarr/config/indexers.json" "$(cat << EOF
+{
+  "indexerConfigs": [
+    {
+      "enable": true,
+      "name": "Prowlarr",
+      "implementation": "Newznab",
+      "configContract": "NewznabSettings",
+      "priority": 25,
+      "enableRss": true,
+      "enableAutomaticSearch": true,
+      "enableInteractiveSearch": true,
+      "settings": {
+        "baseUrl": "http://prowlarr:9696",
+        "apiPath": "/api",
+        "apiKey": "${prowlarr_api_key}",
+        "categories": [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080]
+      }
+    },
+    {
+      "enable": true,
+      "name": "Jackett",
+      "implementation": "Torznab",
+      "configContract": "TorznabSettings",
+      "priority": 25,
+      "enableRss": true,
+      "enableAutomaticSearch": true,
+      "enableInteractiveSearch": true,
+      "settings": {
+        "baseUrl": "http://jackett:9117/torznab/all/api",
+        "apiPath": "/api",
+        "apiKey": "${jackett_api_key}",
+        "categories": [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080]
+      }
+    }
+  ]
+}
+EOF
+)"
 }
 
 generate_traefik_config() {
@@ -280,11 +492,6 @@ libraries:
       tags: ["favorite"]
       genres: []
       collections: []
-      actors: []
-      producers: []
-      directors: []
-      writers: []
-      studios: []
       release_years: 5
 
   - name: "TV Shows"
@@ -308,11 +515,6 @@ libraries:
       tags: []
       genres: []
       collections: []
-      actors: []
-      producers: []
-      directors: []
-      writers: []
-      studios: []
       release_years: 2
 EOF
 )"
@@ -320,12 +522,6 @@ EOF
 
 generate_recyclarr_config() {
     create_file "$CONFIG_ROOT/recyclarr/recyclarr.yml" "$(cat << EOF
-# Recyclarr Configuration File
-# Get Trash IDs from: https://trash-guides.info/
-# - Movies (Radarr): https://trash-guides.info/Radarr/
-# - Series (Sonarr): https://trash-guides.info/Sonarr/
-
-# Sonarr Configuration
 sonarr:
   - base_url: http://sonarr:8989
     api_key: ${SONARR_API_KEY}
@@ -347,23 +543,11 @@ sonarr:
           - name: HDTV-1080p
             score: 90
     custom_formats:
-      # Language Formats
-      - trash_ids: []
-        quality_profiles:
-          - name: HD-1080p
-            score: 100
-      # Audio Formats
-      - trash_ids: []
-        quality_profiles:
-          - name: HD-1080p
-            score: 100
-      # HDR Formats
       - trash_ids: []
         quality_profiles:
           - name: HD-1080p
             score: 100
 
-# Radarr Configuration
 radarr:
   - base_url: http://radarr:7878
     api_key: ${RADARR_API_KEY}
@@ -385,26 +569,14 @@ radarr:
           - name: HDTV-1080p
             score: 90
     custom_formats:
-      # Movie Versions
-      - trash_ids: []
-        quality_profiles:
-          - name: HD-1080p
-            score: 100
-      # Audio Formats
-      - trash_ids: []
-        quality_profiles:
-          - name: HD-1080p
-            score: 100
-      # HDR Formats
       - trash_ids: []
         quality_profiles:
           - name: HD-1080p
             score: 100
 
-# Schedule Configuration
 schedule:
   - name: sync-hourly
-    schedule: "0 * * * *"  # Every hour
+    schedule: "0 * * * *"
     custom_formats: true
     quality_profiles: true
     quality_definitions: true
@@ -413,10 +585,8 @@ EOF
 )"
 }
 
-generate_other_configs() {
-    create_dir "$CONFIG_ROOT/deleterr"
+generate_service_dirs() {
     create_dir "$CONFIG_ROOT/deleterr/logs"
-    create_dir "$CONFIG_ROOT/jellyfin"
     create_dir "$CONFIG_ROOT/jellyfin/transcode"
     create_dir "$CONFIG_ROOT/jellystat"
     create_dir "$CONFIG_ROOT/dockhand"
@@ -425,16 +595,12 @@ generate_other_configs() {
     create_dir "$CONFIG_ROOT/boxarr"
     create_dir "$CONFIG_ROOT/profilarr"
     create_dir "$CONFIG_ROOT/configarr"
-    create_dir "$CONFIG_ROOT/jackett"
     create_dir "$CONFIG_ROOT/homarr"
     create_dir "$CONFIG_ROOT/wud"
-    log "BLUE" "Created all service directories"
-    generate_deleterr_config
-    generate_recyclarr_config
-    log "BLUE" "Generated Recyclarr configuration"
+    create_dir "$CONFIG_ROOT/bazarr"
+    create_dir "$CONFIG_ROOT/seerr"
 }
 
-# Main script execution
 if [ ! -f .env ]; then
     log "RED" "Environment file .env not found!"
     exit 1
@@ -448,25 +614,39 @@ create_dir "$STORAGE_ROOT"
 
 log "BLUE" "Generating configurations..."
 
-# Generate configurations and store API keys using command substitution with proper output handling
-SONARR_API_KEY=$(generate_arr_configs "sonarr" "8989" "${QB_CATEGORY_TV}" "${SERIES_PATH}")
-log "BLUE" "Generated Sonarr API key"
+log "BLUE" "Generating Prowlarr configuration..."
+PROWLARR_API_KEY=$(generate_prowlarr_config)
 
-RADARR_API_KEY=$(generate_arr_configs "radarr" "7878" "${QB_CATEGORY_MOVIES}" "${MOVIES_PATH}")
-log "BLUE" "Generated Radarr API key"
+log "BLUE" "Generating Jackett configuration..."
+JACKETT_API_KEY=$(generate_jackett_config)
 
-PROWLARR_API_KEY=$(generate_arr_base_config "prowlarr" "9696")
-log "BLUE" "Generated Prowlarr API key"
+log "BLUE" "Generating Sonarr configuration..."
+SONARR_API_KEY=$(generate_sonarr_config)
+generate_sonarr_indexers "$PROWLARR_API_KEY" "$JACKETT_API_KEY"
 
-# Generate other configurations
-generate_qbittorrent_config
+log "BLUE" "Generating Radarr configuration..."
+RADARR_API_KEY=$(generate_radarr_config)
+generate_radarr_indexers "$PROWLARR_API_KEY" "$JACKETT_API_KEY"
+
+log "BLUE" "Generating qBittorrent configuration..."
+generate_qbittorrent_config "$PROWLARR_API_KEY" "$JACKETT_API_KEY"
+
+log "BLUE" "Generating Traefik configuration..."
 generate_traefik_config
-generate_other_configs
 
-# Update API keys in .env
+log "BLUE" "Generating other configurations..."
+generate_deleterr_config
+generate_recyclarr_config
+generate_service_dirs
+
 log "BLUE" "Updating API keys in .env file..."
 update_env_var "SONARR_API_KEY" "$SONARR_API_KEY"
 update_env_var "RADARR_API_KEY" "$RADARR_API_KEY"
 update_env_var "PROWLARR_API_KEY" "$PROWLARR_API_KEY"
+update_env_var "JACKETT_API_KEY" "$JACKETT_API_KEY"
 
 log "GREEN" "Configuration generation complete!"
+log "BLUE" "Prowlarr API Key: $PROWLARR_API_KEY"
+log "BLUE" "Jackett API Key: $JACKETT_API_KEY"
+log "BLUE" "Sonarr API Key: $SONARR_API_KEY"
+log "BLUE" "Radarr API Key: $RADARR_API_KEY"

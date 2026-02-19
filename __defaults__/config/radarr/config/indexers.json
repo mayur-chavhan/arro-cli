@@ -1,0 +1,36 @@
+{
+  "indexerConfigs": [
+    {
+      "enable": true,
+      "name": "Prowlarr",
+      "implementation": "Newznab",
+      "configContract": "NewznabSettings",
+      "priority": 25,
+      "enableRss": true,
+      "enableAutomaticSearch": true,
+      "enableInteractiveSearch": true,
+      "settings": {
+        "baseUrl": "http://prowlarr:9696",
+        "apiPath": "/api",
+        "apiKey": "${PROWLARR_API_KEY}",
+        "categories": [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080]
+      }
+    },
+    {
+      "enable": true,
+      "name": "Jackett",
+      "implementation": "Torznab",
+      "configContract": "TorznabSettings",
+      "priority": 25,
+      "enableRss": true,
+      "enableAutomaticSearch": true,
+      "enableInteractiveSearch": true,
+      "settings": {
+        "baseUrl": "http://jackett:9117/torznab/all/api",
+        "apiPath": "/api",
+        "apiKey": "${JACKETT_API_KEY}",
+        "categories": [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080]
+      }
+    }
+  ]
+}
