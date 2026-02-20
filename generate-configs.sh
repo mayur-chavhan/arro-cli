@@ -788,6 +788,24 @@ EOF
     printf "%s" "$bazarr_api_key"
 }
 
+# Helper function: Determine URL format based on DOMAIN
+# Returns direct IP:port URLs for localhost or IP addresses
+# Returns Traefik hostname URLs for custom domains
+get_service_url() {
+    local service_name=$1
+    local port=$2
+    local domain="${DOMAIN:-localhost}"
+    
+    # Check if DOMAIN is localhost, an IP address, or contains .nip.io
+    if [[ "$domain" == "localhost" ]] || [[ "$domain" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ "$domain" =~ \.nip\.io$ ]]; then
+        # Use direct IP:port access
+        echo "http://${domain}:${port}"
+    else
+        # Use Traefik hostname
+        echo "http://${service_name}.${domain}"
+    fi
+}
+
 generate_service_dirs() {
     create_dir "$CONFIG_ROOT/jellyfin/transcode"
     create_dir "$CONFIG_ROOT/jellystat/backup-data"
@@ -876,11 +894,25 @@ EOF
 EOF
 )"
 
+    local jellyfin_url=$(get_service_url "jellyfin" "8096")
+    local seerr_url=$(get_service_url "seerr" "5055")
+    local radarr_url=$(get_service_url "radarr" "7878")
+    local sonarr_url=$(get_service_url "sonarr" "8989")
+    local bazarr_url=$(get_service_url "bazarr" "6767")
+    local prowlarr_url=$(get_service_url "prowlarr" "9696")
+    local jackett_url=$(get_service_url "jackett" "9117")
+    local qbittorrent_url=$(get_service_url "qbittorrent" "8080")
+    local jellystat_url=$(get_service_url "jellystat" "3003")
+    local wud_url=$(get_service_url "wud" "3000")
+    local dockhand_url=$(get_service_url "dockhand" "3002")
+    local huntarr_url=$(get_service_url "huntarr" "9705")
+    local recommendarr_url=$(get_service_url "recommendarr" "3001")
+
     create_file "$CONFIG_ROOT/homepage/services.yaml" "$(cat << EOF
 - Media:
     - Jellyfin:
         icon: jellyfin.png
-        href: http://jellyfin.\${DOMAIN:-localhost}
+        href: ${jellyfin_url}
         description: Media Server
         widget:
           type: jellyfin
@@ -890,7 +922,7 @@ EOF
 - Requests:
     - Seerr:
         icon: overseerr.png
-        href: http://seerr.\${DOMAIN:-localhost}
+        href: ${seerr_url}
         description: Media Requests
         widget:
           type: overseerr
@@ -900,7 +932,7 @@ EOF
 - Movies & TV:
     - Radarr:
         icon: radarr.png
-        href: http://radarr.\${DOMAIN:-localhost}
+        href: ${radarr_url}
         description: Movie Management
         widget:
           type: radarr
@@ -909,7 +941,7 @@ EOF
 
     - Sonarr:
         icon: sonarr.png
-        href: http://sonarr.\${DOMAIN:-localhost}
+        href: ${sonarr_url}
         description: TV Series Management
         widget:
           type: sonarr
@@ -918,7 +950,7 @@ EOF
 
     - Bazarr:
         icon: bazarr.png
-        href: http://bazarr.\${DOMAIN:-localhost}
+        href: ${bazarr_url}
         description: Subtitles Management
         widget:
           type: bazarr
@@ -928,7 +960,7 @@ EOF
 - Indexers:
     - Prowlarr:
         icon: prowlarr.png
-        href: http://prowlarr.\${DOMAIN:-localhost}
+        href: ${prowlarr_url}
         description: Indexer Manager
         widget:
           type: prowlarr
@@ -937,7 +969,7 @@ EOF
 
     - Jackett:
         icon: jackett.png
-        href: http://jackett.\${DOMAIN:-localhost}
+        href: ${jackett_url}
         description: Indexer Proxy
         widget:
           type: jackett
@@ -947,7 +979,7 @@ EOF
 - Downloads:
     - qBittorrent:
         icon: qbittorrent.png
-        href: http://qbittorrent.\${DOMAIN:-localhost}
+        href: ${qbittorrent_url}
         description: Torrent Client
         widget:
           type: qbittorrent
@@ -958,7 +990,7 @@ EOF
 - Monitoring:
     - Jellystat:
         icon: jellystat.png
-        href: http://jellystat.\${DOMAIN:-localhost}
+        href: ${jellystat_url}
         description: Jellyfin Statistics
         widget:
           type: jellystat
@@ -967,40 +999,32 @@ EOF
 
     - What's Up Docker:
         icon: whatsupdocker.png
-        href: http://wud.\${DOMAIN:-localhost}
-        description: Container Updates
-        widget:
-          type: whatsupdocker
-          url: http://wud:3000
+        href: ${wud_url}
+        description: Container Update Monitor
 
 - Infrastructure:
     - Traefik:
         icon: traefik.png
-        href: http://traefik.\${DOMAIN:-localhost}
+        href: http://127.0.0.1:8082
         description: Reverse Proxy
         widget:
           type: traefik
           url: http://traefik:8080
 
     - Dockhand:
-        icon: dockhand.png
-        href: http://dockhand.\${DOMAIN:-localhost}
+        icon: portainer.png
+        href: ${dockhand_url}
         description: Container Management
 
-- Tools:
-    - Flaresolverr:
-        icon: flaresolverr.png
-        href: http://flaresolverr.\${DOMAIN:-localhost}
-        description: Cloudflare Solver
-
+- Dashboards:
     - Huntarr:
         icon: huntarr.png
-        href: http://huntarr.\${DOMAIN:-localhost}
-        description: Media Hunting
+        href: ${huntarr_url}
+        description: Media Wishlist & Hunt Manager
 
     - Recommendarr:
         icon: recommendarr.png
-        href: http://recommendarr.\${DOMAIN:-localhost}
+        href: ${recommendarr_url}
         description: Media Recommendations
 EOF
 )"
