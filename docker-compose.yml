@@ -270,6 +270,8 @@ services:
     <<: *common
     container_name: homarr
     image: ghcr.io/ajnart/homarr:latest
+    profiles:
+      - disabled
     environment:
       <<: *commonenv
     ports:
@@ -312,6 +314,8 @@ services:
     <<: *common
     container_name: deleterr
     image: ghcr.io/rfsbraz/deleterr:latest
+    profiles:
+      - disabled
     environment:
       <<: *commonenv
     ports:
@@ -468,6 +472,8 @@ services:
     <<: *common
     image: ghcr.io/raydak-labs/configarr:latest
     container_name: configarr
+    profiles:
+      - disabled
     environment:
       <<: *commonenv
     volumes:
