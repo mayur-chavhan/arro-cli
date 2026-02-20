@@ -209,6 +209,11 @@ generate_jackett_config() {
     existing_key=$(read_existing_json_key "$config_file" "APIKey")
     local api_key="${existing_key:-$(openssl rand -hex 32)}"
     
+    local base_path=""
+    if [ -n "$BASE_PATH" ] && [ "$BASE_PATH" != "/" ]; then
+        base_path="\"BasePathOverride\": \"${BASE_PATH}/jackett\","
+    fi
+    
     create_dir "$CONFIG_ROOT/jackett"
     create_file "$CONFIG_ROOT/jackett/Jackett/ServerConfig.json" "$(cat << EOF
 {
@@ -220,7 +225,7 @@ generate_jackett_config() {
   "BlackholeDir": "",
   "UpdateDisabled": true,
   "UpdatePrerelease": false,
-  "BasePathOverride": "${BASE_PATH:-}/jackett",
+  ${base_path}
   "OmdbApiKey": "",
   "OmdbApiUrl": ""
 }
