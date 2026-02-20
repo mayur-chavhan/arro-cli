@@ -784,17 +784,16 @@ EOF
 }
 
 generate_service_dirs() {
-    create_dir "$CONFIG_ROOT/deleterr/logs"
     create_dir "$CONFIG_ROOT/jellyfin/transcode"
-    create_dir "$CONFIG_ROOT/jellystat"
-    create_dir "$CONFIG_ROOT/dockhand"
+    create_dir "$CONFIG_ROOT/jellystat/backup-data"
+    create_dir "$CONFIG_ROOT/jellystat-db/data"
+    create_dir "$CONFIG_ROOT/dockhand/data"
     create_dir "$CONFIG_ROOT/huntarr"
     create_dir "$CONFIG_ROOT/recommendarr"
     create_dir "$CONFIG_ROOT/boxarr"
     create_dir "$CONFIG_ROOT/profilarr"
-    create_dir "$CONFIG_ROOT/configarr"
-    create_dir "$CONFIG_ROOT/homarr"
-    create_dir "$CONFIG_ROOT/wud"
+    create_dir "$CONFIG_ROOT/wud/store"
+    create_dir "$CONFIG_ROOT/traefik/letsencrypt"
     create_dir "$CONFIG_ROOT/bazarr"
     create_dir "$CONFIG_ROOT/seerr"
     create_dir "$CONFIG_ROOT/homepage"
@@ -983,12 +982,6 @@ EOF
         href: http://dockhand.\${DOMAIN:-localhost}
         description: Container Management
 
-- Dashboards:
-    - Homarr:
-        icon: homarr.png
-        href: http://homarr.\${DOMAIN:-localhost}
-        description: Alternative Dashboard
-
 - Tools:
     - Flaresolverr:
         icon: flaresolverr.png
@@ -1004,11 +997,6 @@ EOF
         icon: recommendarr.png
         href: http://recommendarr.\${DOMAIN:-localhost}
         description: Media Recommendations
-
-    - Deleterr:
-        icon: deleterr.png
-        href: http://deleterr.\${DOMAIN:-localhost}
-        description: Media Cleanup
 EOF
 )"
 }
@@ -1167,7 +1155,6 @@ update_env_var "JACKETT_API_KEY" "$JACKETT_API_KEY"
 source .env
 
 log "BLUE" "Generating other configurations..."
-generate_deleterr_config
 generate_recyclarr_config
 generate_seerr_config "$RADARR_API_KEY" "$SONARR_API_KEY"
 

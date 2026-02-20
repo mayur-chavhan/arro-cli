@@ -14,11 +14,6 @@ x-common: &common
     - media_network
 
 volumes:
-  traefik_data:
-  wud_data:
-  dockhand_data:
-  jellystat_db:
-  jellystat_data:
   homepage_data:
 
 services:
@@ -45,7 +40,7 @@ services:
       # Dashboard available at http://localhost:8082 (insecure mode, localhost only)
       - "127.0.0.1:8082:8080"
     volumes:
-      - traefik_data:/letsencrypt
+      - ${CONFIG_ROOT}/traefik/letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
       - traefik.enable=true
@@ -87,7 +82,7 @@ services:
     ports:
       - "3002:3000"
     volumes:
-      - dockhand_data:/app/data
+      - ${CONFIG_ROOT}/dockhand/data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
       - traefik.enable=true
@@ -271,6 +266,8 @@ services:
     <<: *common
     container_name: homarr
     image: ghcr.io/ajnart/homarr:latest
+    profiles:
+      - disabled
     environment:
       <<: *commonenv
     ports:
@@ -291,7 +288,7 @@ services:
     container_name: homepage
     environment:
       <<: *commonenv
-      HOMEPAGE_ALLOWED_HOSTS: ${DOMAIN:-localhost}
+      HOMEPAGE_ALLOWED_HOSTS: "${DOMAIN:-localhost}:3004,192.168.1.11:3004"
     ports:
       - "3004:3000"
     volumes:
@@ -313,6 +310,8 @@ services:
     <<: *common
     container_name: deleterr
     image: ghcr.io/rfsbraz/deleterr:latest
+    profiles:
+      - disabled
     environment:
       <<: *commonenv
     ports:
@@ -340,7 +339,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - wud_data:/store
+      - ${CONFIG_ROOT}/wud/store:/store
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
       - traefik.enable=true
@@ -357,7 +356,7 @@ services:
       POSTGRES_USER: jellystat
       POSTGRES_PASSWORD: ${JELLYSTAT_DB_PASSWORD:-jellystat}
     volumes:
-      - jellystat_db:/var/lib/postgresql/data
+      - ${CONFIG_ROOT}/jellystat-db/data:/var/lib/postgresql/data
     networks:
       - media_network
     restart: unless-stopped
@@ -385,7 +384,7 @@ services:
     ports:
       - "3003:3000"
     volumes:
-      - jellystat_data:/app/backend/backup-data
+      - ${CONFIG_ROOT}/jellystat/backup-data:/app/backend/backup-data
     labels:
       - traefik.enable=true
       - traefik.http.routers.jellystat.rule=Host(`jellystat.${DOMAIN:-localhost}`)
@@ -469,6 +468,8 @@ services:
     <<: *common
     image: ghcr.io/raydak-labs/configarr:latest
     container_name: configarr
+    profiles:
+      - disabled
     environment:
       <<: *commonenv
     volumes:

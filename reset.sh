@@ -38,9 +38,9 @@ confirm_reset() {
 }
 
 confirm_purge_volumes() {
-    log "YELLOW" "Do you also want to remove named Docker volumes (jellystat_db, jellystat_data, wud_data, etc.)?"
-    log "YELLOW" "This will permanently delete all database and persistent container data."
-    read -p "Remove named volumes? (y/N) " -n 1 -r
+    log "YELLOW" "Do you also want to remove bind-mount data directories (jellystat-db, jellystat, wud/store, traefik/letsencrypt, dockhand/data)?"
+    log "YELLOW" "This will permanently delete all database and persistent container data stored under ${CONFIG_ROOT}."
+    read -p "Remove bind-mount data? (y/N) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         PURGE_VOLUMES=true

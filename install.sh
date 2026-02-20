@@ -51,12 +51,6 @@ print_login_info() {
     echo -e "\n${BLUE}qBitTorrent:${NC}"
     echo -e "  Username: admin"
     echo -e "  Password: adminadmin"
-    echo -e "\n${BLUE}Homarr:${NC}"
-    echo -e "  Username: admin"
-    echo -e "  Password: Admin123!"
-    echo -e "\n${BLUE}Calibre:${NC}"
-    echo -e "  Username: admin"
-    echo -e "  Password: admin123"
     echo -e "\n${YELLOW}IMPORTANT: Please change these default passwords immediately!${NC}\n"
 }
 
