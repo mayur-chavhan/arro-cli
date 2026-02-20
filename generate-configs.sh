@@ -885,7 +885,7 @@ EOF
         widget:
           type: jellyfin
           url: http://jellyfin:8096
-          key: \${HOMEPAGE_VAR_JELLYFIN_API_KEY}
+          key: ${HOMEPAGE_VAR_JELLYFIN_API_KEY:-}
 
 - Requests:
     - Seerr:
@@ -895,7 +895,7 @@ EOF
         widget:
           type: overseerr
           url: http://seerr:5055
-          key: \${HOMEPAGE_VAR_SEERR_API_KEY}
+          key: ${HOMEPAGE_VAR_SEERR_API_KEY:-}
 
 - Movies & TV:
     - Radarr:
@@ -905,7 +905,7 @@ EOF
         widget:
           type: radarr
           url: http://radarr:7878
-          key: \${HOMEPAGE_VAR_RADARR_API_KEY}
+          key: ${HOMEPAGE_VAR_RADARR_API_KEY:-}
 
     - Sonarr:
         icon: sonarr.png
@@ -914,7 +914,7 @@ EOF
         widget:
           type: sonarr
           url: http://sonarr:8989
-          key: \${HOMEPAGE_VAR_SONARR_API_KEY}
+          key: ${HOMEPAGE_VAR_SONARR_API_KEY:-}
 
     - Bazarr:
         icon: bazarr.png
@@ -923,7 +923,7 @@ EOF
         widget:
           type: bazarr
           url: http://bazarr:6767
-          key: \${HOMEPAGE_VAR_BAZARR_API_KEY}
+          key: ${HOMEPAGE_VAR_BAZARR_API_KEY:-}
 
 - Indexers:
     - Prowlarr:
@@ -933,7 +933,7 @@ EOF
         widget:
           type: prowlarr
           url: http://prowlarr:9696
-          key: \${HOMEPAGE_VAR_PROWLARR_API_KEY}
+          key: ${HOMEPAGE_VAR_PROWLARR_API_KEY:-}
 
     - Jackett:
         icon: jackett.png
@@ -942,7 +942,7 @@ EOF
         widget:
           type: jackett
           url: http://jackett:9117
-          key: \${HOMEPAGE_VAR_JACKETT_API_KEY}
+          key: ${HOMEPAGE_VAR_JACKETT_API_KEY:-}
 
 - Downloads:
     - qBittorrent:
@@ -963,7 +963,7 @@ EOF
         widget:
           type: jellystat
           url: http://jellystat:3000
-          key: \${HOMEPAGE_VAR_JELLYSTAT_API_KEY}
+          key: ${HOMEPAGE_VAR_JELLYSTAT_API_KEY:-}
 
     - What's Up Docker:
         icon: whatsupdocker.png
@@ -1168,8 +1168,7 @@ BAZARR_API_KEY=$(generate_bazarr_config "$SONARR_API_KEY" "$RADARR_API_KEY")
 update_env_var "BAZARR_API_KEY" "$BAZARR_API_KEY"
 
 log "BLUE" "Generating Homepage configuration..."
-generate_homepage_config
-
+log "BLUE" "Writing API keys to .env for homepage..."
 update_env_var "HOMEPAGE_VAR_JELLYFIN_API_KEY" "${JELLYFIN_API_KEY:-}"
 update_env_var "HOMEPAGE_VAR_SEERR_API_KEY" "${SEERR_API_KEY:-}"
 update_env_var "HOMEPAGE_VAR_RADARR_API_KEY" "$RADARR_API_KEY"
@@ -1178,6 +1177,10 @@ update_env_var "HOMEPAGE_VAR_BAZARR_API_KEY" "$BAZARR_API_KEY"
 update_env_var "HOMEPAGE_VAR_PROWLARR_API_KEY" "$PROWLARR_API_KEY"
 update_env_var "HOMEPAGE_VAR_JACKETT_API_KEY" "$JACKETT_API_KEY"
 update_env_var "HOMEPAGE_VAR_JELLYSTAT_API_KEY" "${JELLYSTAT_JWT_SECRET:-}"
+
+source .env
+
+generate_homepage_config
 
 generate_service_dirs
 
