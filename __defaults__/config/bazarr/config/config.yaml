@@ -186,7 +186,7 @@ proxy:
   url: ''
   username: ''
 radarr:
-  apikey: ''
+  apikey: '4f21dd73fef64eb6576a69aa4996c545fb343b1af77988e92886f824dbd0257c'
   base_url: ''
   defer_search_signalr: false
   excluded_tags: []
@@ -215,7 +215,7 @@ series_scores:
   video_codec: 2
   year: 90
 sonarr:
-  apikey: ''
+  apikey: '56009e9dba5de026fe944efef084e0b4f929aedf22c6c4d660fb74e9f2e4b13f'
   base_url: ''
   defer_search_signalr: false
   exclude_season_zero: false

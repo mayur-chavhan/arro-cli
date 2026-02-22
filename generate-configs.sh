@@ -52,7 +52,7 @@ create_file() {
 read_existing_xml_key() {
     local file="$1"
     if [ -f "$file" ]; then
-        grep -oP '(?<=<ApiKey>)[^<]+' "$file" 2>/dev/null || true
+        sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' "$file" 2>/dev/null || true
     fi
 }
 
@@ -60,7 +60,7 @@ read_existing_json_key() {
     local file="$1"
     local field="$2"
     if [ -f "$file" ]; then
-        grep -oP "(?<=\"${field}\": \")[^\"]+" "$file" 2>/dev/null || true
+        sed -n "s/.*\"${field}\": *\"\([^\"]*\)\".*/\1/p" "$file" 2>/dev/null || true
     fi
 }
 
@@ -70,6 +70,76 @@ read_existing_yaml_key() {
     local key="$3"
     if [ -f "$file" ]; then
         awk "/^${section}:/{found=1; next} found && /^  ${key}: /{val=\$2; gsub(/^'|'$/, \"\", val); print val; exit} found && /^[^ ]/{exit}" "$file" 2>/dev/null || true
+    fi
+}
+
+# Sync API keys into pre-filled SQLite databases.
+# When using --defaults install, the DBs have baked-in keys that must match config.xml.
+# When generate-configs.sh runs (standard install), it creates new keys that must be
+# injected into the DBs so integrations work out of the box.
+sync_prowlarr_db_keys() {
+    local prowlarr_db="$CONFIG_ROOT/prowlarr/prowlarr.db"
+    local radarr_api_key="$1"
+    local sonarr_api_key="$2"
+    
+    if [ ! -f "$prowlarr_db" ]; then
+        return 0
+    fi
+    
+    if ! command -v sqlite3 &>/dev/null; then
+        log "YELLOW" "sqlite3 not found, skipping Prowlarr DB key sync"
+        return 0
+    fi
+    
+    log "BLUE" "Syncing API keys into Prowlarr database..."
+    sqlite3 "$prowlarr_db" "UPDATE Applications SET Settings = json_set(Settings, '$.apiKey', '${radarr_api_key}') WHERE Implementation = 'Radarr';" 2>/dev/null || true
+    sqlite3 "$prowlarr_db" "UPDATE Applications SET Settings = json_set(Settings, '$.apiKey', '${sonarr_api_key}') WHERE Implementation = 'Sonarr';" 2>/dev/null || true
+    log "BLUE" "Prowlarr DB keys synced"
+}
+
+sync_arr_db_indexer_keys() {
+    local service="$1"
+    local db_file="$CONFIG_ROOT/${service}/${service}.db"
+    local prowlarr_api_key="$2"
+    
+    if [ ! -f "$db_file" ]; then
+        return 0
+    fi
+    
+    if ! command -v sqlite3 &>/dev/null; then
+        log "YELLOW" "sqlite3 not found, skipping ${service} DB key sync"
+        return 0
+    fi
+    
+    log "BLUE" "Syncing Prowlarr API key into ${service} database..."
+    sqlite3 "$db_file" "UPDATE Indexers SET Settings = json_set(Settings, '$.apiKey', '${prowlarr_api_key}') WHERE Name LIKE '%Prowlarr%';" 2>/dev/null || true
+    log "BLUE" "${service} DB indexer keys synced"
+}
+
+sync_seerr_config_keys() {
+    local settings_file="$CONFIG_ROOT/seerr/settings.json"
+    local radarr_api_key="$1"
+    local sonarr_api_key="$2"
+    
+    if [ ! -f "$settings_file" ]; then
+        return 0
+    fi
+    
+    if command -v python3 &>/dev/null; then
+        log "BLUE" "Syncing API keys into Seerr settings..."
+        python3 -c "
+import json
+with open('${settings_file}', 'r') as f:
+    data = json.load(f)
+for entry in data.get('radarr', []):
+    entry['apiKey'] = '${radarr_api_key}'
+for entry in data.get('sonarr', []):
+    entry['apiKey'] = '${sonarr_api_key}'
+with open('${settings_file}', 'w') as f:
+    json.dump(data, f, indent=1)
+" 2>/dev/null || log "YELLOW" "Failed to update Seerr settings"
+    else
+        log "YELLOW" "python3 not found, skipping Seerr key sync"
     fi
 }
 
@@ -1103,6 +1173,13 @@ source .env
 generate_homepage_config
 
 generate_service_dirs
+# Sync API keys into pre-filled databases and config files.
+# This ensures integrations work out-of-the-box whether using --defaults or standard install.
+log "BLUE" "Syncing API keys into service databases and configs..."
+sync_prowlarr_db_keys "$RADARR_API_KEY" "$SONARR_API_KEY"
+sync_arr_db_indexer_keys "radarr" "$PROWLARR_API_KEY"
+sync_arr_db_indexer_keys "sonarr" "$PROWLARR_API_KEY"
+sync_seerr_config_keys "$RADARR_API_KEY" "$SONARR_API_KEY"
 
 log "GREEN" "Configuration generation complete!"
 log "BLUE" "Prowlarr API Key: $PROWLARR_API_KEY"
