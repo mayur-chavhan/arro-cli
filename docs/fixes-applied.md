@@ -52,12 +52,14 @@ Multiple configuration issues have been identified and fixed in the ArrGo stack.
 
 ---
 
-### 5. Boxarr Port Confusion 📝
-**Problem**: User reported port 5656 unreachable.
+### 5. Boxarr Port Misconfiguration ✅
+**Problem**: User reported port 5656 unreachable, then connection refused on 5056.
 
-**Actual Port**: `5056` (correctly configured in docker-compose.yml)
+**Root Cause**: docker-compose.yml had incorrect port mapping `5056:5056`. Boxarr's internal port is `8888`, not `5056`.
 
-**Status**: Documentation issue - no code changes needed. Boxarr is accessible at `http://YOUR_IP:5056`.
+**Fix**: Changed port mapping to `5056:8888` and updated Traefik loadbalancer to use port `8888`.
+
+**Status**: Fixed - Boxarr now accessible at `http://YOUR_IP:5056`.
 
 ---
 
