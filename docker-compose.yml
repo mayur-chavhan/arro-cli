@@ -444,13 +444,13 @@ services:
     environment:
       <<: *commonenv
     ports:
-      - "5056:5056"
+      - "5056:8888"
     volumes:
       - ${CONFIG_ROOT}/boxarr:/config
     labels:
       - traefik.enable=true
       - traefik.http.routers.boxarr.rule=Host(`boxarr.${DOMAIN:-localhost}`)
-      - traefik.http.services.boxarr.loadbalancer.server.port=5056
+      - traefik.http.services.boxarr.loadbalancer.server.port=8888
       - wud.enabled=true
       - wud.tag.display.name=boxarr
 
