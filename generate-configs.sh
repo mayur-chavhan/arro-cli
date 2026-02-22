@@ -1030,116 +1030,12 @@ EOF
 )"
 }
 
+# Seerr configuration is now managed manually through the UI
+# This function is disabled to prevent conflicts with user-configured settings
+# The config directory will still be created for volume mounting
 generate_seerr_config() {
-    local radarr_api_key="$1"
-    local sonarr_api_key="$2"
-    local jellyfin_api_key="${JELLYFIN_API_KEY:-}"
-
-    create_file "$CONFIG_ROOT/seerr/settings.json" "$(cat << EOF
-{
- "main": {
-  "applicationTitle": "ArrGo",
-  "applicationUrl": "",
-  "csrfProtection": false,
-  "cacheImages": false,
-  "defaultPermissions": 32,
-  "defaultQuotas": {
-   "movie": {},
-   "tv": {}
-  },
-  "hideAvailable": false,
-  "hideBlocklisted": false,
-  "localLogin": true,
-  "mediaServerLogin": true,
-  "newPlexLogin": false,
-  "discoverRegion": "",
-  "streamingRegion": "",
-  "originalLanguage": "",
-  "blocklistedTags": "",
-  "blocklistedTagsLimit": 50,
-  "mediaServerType": 4,
-  "partialRequestsEnabled": true,
-  "enableSpecialEpisodes": false,
-  "locale": "en",
-  "youtubeUrl": ""
- },
- "plex": {
-  "name": "",
-  "ip": "",
-  "port": 32400,
-  "useSsl": false,
-  "libraries": []
- },
- "jellyfin": {
-  "name": "Jellyfin",
-  "ip": "jellyfin",
-  "port": 8096,
-  "useSsl": false,
-  "urlBase": "",
-  "externalHostname": "",
-  "jellyfinForgotPasswordUrl": "",
-  "libraries": [],
-  "serverId": "",
-  "apiKey": "${jellyfin_api_key}"
- },
- "tautulli": {},
- "metadataSettings": {
-  "tv": "tmdb",
-  "anime": "tmdb"
- },
- "radarr": [
-  {
-   "name": "Radarr",
-   "hostname": "radarr",
-   "port": 7878,
-   "apiKey": "${radarr_api_key}",
-   "useSsl": false,
-   "activeProfileId": 3,
-   "activeProfileName": "HD-720p",
-   "activeDirectory": "/movies",
-   "is4k": false,
-   "minimumAvailability": "released",
-   "tags": [],
-   "isDefault": true,
-   "syncEnabled": false,
-   "preventSearch": false,
-   "tagRequests": false,
-   "id": 0
-  }
- ],
- "sonarr": [
-  {
-   "name": "Sonarr",
-   "hostname": "sonarr",
-   "port": 8989,
-   "apiKey": "${sonarr_api_key}",
-   "useSsl": false,
-   "baseUrl": "",
-   "activeProfileId": 3,
-   "activeLanguageProfileId": 1,
-   "activeProfileName": "HD-720p",
-   "activeDirectory": "/tv",
-   "tags": [],
-   "animeTags": [],
-   "is4k": false,
-   "isDefault": true,
-   "enableSeasonFolders": true,
-   "syncEnabled": false,
-   "preventSearch": false,
-   "tagRequests": false,
-   "id": 0
-  }
- ],
- "public": {
-  "initialized": false
- },
- "migrations": [
-  "0007_migrate_arr_tags",
-  "0008_migrate_blacklist_to_blocklist"
- ]
-}
-EOF
-)"
+    log "YELLOW" "Skipping Seerr configuration generation - configure manually via UI at http://YOUR_IP:5055"
+    create_dir "$CONFIG_ROOT/seerr"
 }
 
 if [ ! -f .env ]; then

@@ -42,7 +42,7 @@ Multiple configuration issues have been identified and fixed in the ArrGo stack.
 ---
 
 ### 4. JELLYFIN_API_KEY and SEERR_API_KEY Not Auto-Generated ⚠️
-**Problem**: Homepage Jellyfin and Seerr widgets show 401 errors. Seerr cannot connect to Jellyfin.
+**Problem**: Homepage Jellyfin and Seerr widgets show 401 errors.
 
 **Root Cause**: These API keys **CANNOT** be auto-generated - they must be obtained from the service UIs.
 
@@ -52,7 +52,18 @@ Multiple configuration issues have been identified and fixed in the ArrGo stack.
 
 ---
 
-### 5. Boxarr Port Misconfiguration ✅
+### 5. Seerr Configuration Management ✅
+**Problem**: Auto-generated Seerr configuration was conflicting with manual UI setup, causing connection issues.
+
+**Root Cause**: The `generate-configs.sh` script was creating a `settings.json` file that Seerr would try to use, conflicting with user's manual configuration through the UI.
+
+**Fix**: Disabled automatic Seerr config generation. The script now only creates the empty config directory for volume mounting. Users configure Seerr entirely through its web UI.
+
+**Status**: Fixed - Seerr configuration is now 100% manual via UI.
+
+---
+
+### 6. Boxarr Port Misconfiguration ✅
 **Problem**: User reported port 5656 unreachable, then connection refused on 5056.
 
 **Root Cause**: docker-compose.yml had incorrect port mapping `5056:5056`. Boxarr's internal port is `8888`, not `5056`.
@@ -75,15 +86,19 @@ Multiple configuration issues have been identified and fixed in the ArrGo stack.
 4. Name it: `ArrGo` or `Homepage`
 5. Copy the generated key
 
-#### B. Get SEERR_API_KEY
+#### B. Configure Seerr and Get API Key
 
-**IMPORTANT**: Seerr requires Jellyfin to be configured first!
+**IMPORTANT**: Seerr is now configured entirely through its web UI. No config files are auto-generated.
 
 1. Access Seerr: `http://192.168.1.11:5055`
 2. Complete initial setup wizard:
-   - Connect to Jellyfin using the `JELLYFIN_API_KEY` from Step 1
-   - Configure admin account
-3. Go to **Settings** → **General** → **API Key**
+   - Connect to Jellyfin:
+     - Server URL: `http://jellyfin:8096` (internal Docker network)
+     - Or external: `http://192.168.1.11:8096`
+   - Enter your Jellyfin admin credentials
+   - Configure Radarr and Sonarr connections (use the API keys from `.env`)
+   - Create Seerr admin account
+3. After setup, go to **Settings** → **General** → **API Key**
 4. Copy the displayed key
 
 #### C. Update .env File
@@ -109,6 +124,7 @@ This will:
 - Regenerate homepage `services.yaml` with correct API keys
 - Update all URLs to use proper format for your DOMAIN setting
 - Fix Jackett BasePathOverride
+- Create Seerr config directory (but no config files - Seerr manages its own config)
 - Write updated values to `.env`
 
 ---
@@ -118,8 +134,10 @@ This will:
 Restart containers to load new configurations:
 
 ```bash
-docker compose restart homepage jackett seerr
+docker compose restart homepage jackett
 ```
+
+**Note**: No need to restart Seerr - it manages its own configuration through the UI.
 
 Or restart all services:
 
